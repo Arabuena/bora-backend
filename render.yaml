@@ -10,4 +10,8 @@ services:
       - key: JWT_SECRET
         value: bora_uber_clone_secret_2024
       - key: PORT
-        value: 5000 
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://bora-frontend.vercel.app 

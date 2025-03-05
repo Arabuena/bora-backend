@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 
-router.get('/health', async (req, res) => {
+// Rota raiz de saúde
+router.get('/', async (req, res) => {
   try {
-    // Verifica conexão com MongoDB
     const dbState = mongoose.connection.readyState;
     const dbStatus = {
       0: "Desconectado",
@@ -17,7 +17,9 @@ router.get('/health', async (req, res) => {
       status: 'ok',
       database: {
         state: dbStatus[dbState],
-        connected: dbState === 1
+        connected: dbState === 1,
+        name: mongoose.connection.name,
+        host: mongoose.connection.host
       },
       timestamp: new Date()
     });
@@ -29,7 +31,7 @@ router.get('/health', async (req, res) => {
   }
 });
 
-router.get('/test-connections', async (req, res) => {
+router.get('/test', async (req, res) => {
   try {
     // Testa MongoDB
     const dbState = mongoose.connection.readyState;

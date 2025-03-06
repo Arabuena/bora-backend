@@ -1,11 +1,23 @@
+const express = require('express');
+const router = express.Router();
+
+// Rota de login
 router.post('/login', async (req, res, next) => {
   try {
     console.log('Login attempt:', {
-      email: req.body.email,
+      body: req.body,
       headers: req.headers
     });
 
-    // ... resto do código de login
+    // TODO: Implementar lógica de login
+    res.json({
+      success: true,
+      token: 'token_temporario',
+      user: {
+        id: 1,
+        email: req.body.email
+      }
+    });
 
   } catch (error) {
     console.error('Login error:', error);
@@ -17,11 +29,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/test', (req, res) => {
   res.json({
     message: 'Auth route is working',
-    env: process.env.NODE_ENV,
-    cors: {
-      enabled: process.env.CORS_ENABLED,
-      frontendUrl: process.env.FRONTEND_URL
-    }
+    timestamp: new Date()
   });
 });
 
@@ -40,4 +48,6 @@ router.get('/test-cors', (req, res) => {
       received: req.headers
     }
   });
-}); 
+});
+
+module.exports = router; 

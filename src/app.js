@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const healthRouter = require('./routes/health');
+const authRouter = require('./routes/auth');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.get('/', (req, res) => {
 
 // Rotas de saúde
 app.use('/health', healthRouter);
+app.use('/auth', authRouter);
 
 // Middleware de erro global
 app.use((err, req, res, next) => {

@@ -8,22 +8,36 @@ const app = express();
 const allowedOrigins = [
   'https://bora-frontend.vercel.app',  // Produção na Vercel
   'http://localhost:3000',             // Desenvolvimento local
+  'https://bora-frontend-git-main-arabuena.vercel.app', // Preview da Vercel
+  'https://bora-frontend-arabuena.vercel.app',          // Outros domínios da Vercel
   process.env.FRONTEND_URL             // URL configurável
 ].filter(Boolean); // Remove valores undefined/null
 
+// Log dos origins permitidos
+console.log('Allowed Origins:', allowedOrigins);
+
 app.use(cors({
   origin: function(origin, callback) {
-    // Permite requisições sem origin (como apps mobile)
-    if (!origin) return callback(null, true);
+    // Log para debug
+    console.log('Request Origin:', origin);
+    
+    // Permite requisições sem origin (como apps mobile ou Postman)
+    if (!origin) {
+      console.log('No origin provided - allowing request');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
-      console.warn(`Origin ${origin} não permitida pelo CORS`);
+      console.warn(`Origin not allowed by CORS:`, origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Middlewares básicos

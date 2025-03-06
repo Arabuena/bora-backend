@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const router = express.Router();
 
 // Rota de login
@@ -34,19 +35,16 @@ router.get('/test', (req, res) => {
 });
 
 // Rota de teste CORS
-router.options('/test-cors', cors()); // Habilita pre-flight para esta rota
+router.options('/test-cors', cors());
 router.get('/test-cors', (req, res) => {
   res.json({
     message: 'CORS test successful',
     origin: req.headers.origin,
     environment: {
       node_env: process.env.NODE_ENV,
-      frontend_url: process.env.FRONTEND_URL,
-      cors_enabled: process.env.CORS_ENABLED
+      frontend_url: process.env.FRONTEND_URL
     },
-    headers: {
-      received: req.headers
-    }
+    headers: req.headers
   });
 });
 

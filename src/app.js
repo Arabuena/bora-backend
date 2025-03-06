@@ -4,14 +4,29 @@ const healthRouter = require('./routes/health');
 
 const app = express();
 
-// Middlewares básicos
+// Configuração do CORS
+const allowedOrigins = [
+  'https://bora-frontend.vercel.app',  // Produção na Vercel
+  'http://localhost:3000',             // Desenvolvimento local
+  process.env.FRONTEND_URL             // URL configurável
+].filter(Boolean); // Remove valores undefined/null
+
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL,
-    'http://localhost:3000'
-  ],
+  origin: function(origin, callback) {
+    // Permite requisições sem origin (como apps mobile)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`Origin ${origin} não permitida pelo CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
+
+// Middlewares básicos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -14,4 +14,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://vextrix.vercel.app
+        value: https://bora-frontend.vercel.app

@@ -44,8 +44,21 @@ app.use('/health', healthRouter);
 
 // Middleware de erro global
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Algo deu errado!' });
+  console.error('Error:', err);
+  console.error('Stack:', err.stack);
+  
+  // Log detalhado para debug
+  console.error('Request details:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body
+  });
+
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Algo deu errado!',
+    error: process.env.NODE_ENV === 'development' ? err : {}
+  });
 });
 
 module.exports = app; 

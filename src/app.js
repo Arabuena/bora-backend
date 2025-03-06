@@ -5,40 +5,56 @@ const healthRouter = require('./routes/health');
 const app = express();
 
 // Configuração do CORS
-const allowedOrigins = [
-  'https://bora-frontend.vercel.app',  // Produção na Vercel
-  'http://localhost:3000',             // Desenvolvimento local
-  'https://bora-frontend-git-main-arabuena.vercel.app', // Preview da Vercel
-  'https://bora-frontend-arabuena.vercel.app',          // Outros domínios da Vercel
-  process.env.FRONTEND_URL             // URL configurável
-].filter(Boolean); // Remove valores undefined/null
-
-// Log dos origins permitidos
-console.log('Allowed Origins:', allowedOrigins);
-
-app.use(cors({
+const corsOptions = {
   origin: function(origin, callback) {
-    // Log para debug
+    // Log do origin para debug
     console.log('Request Origin:', origin);
     
-    // Permite requisições sem origin (como apps mobile ou Postman)
-    if (!origin) {
-      console.log('No origin provided - allowing request');
+    // Em desenvolvimento, aceita qualquer origem
+    if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
     
+    // Em produção, verifica a origem
+    const allowedOrigins = [
+      'https://vextrix.vercel.app',
+      'https://bora-frontend.vercel.app',
+      'https://bora-frontend-git-main-arabuena.vercel.app',
+      'https://bora-frontend-arabuena.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
+
+    // Permite requisições sem origin (Postman, etc)
+    if (!origin) {
+      return callback(null, true);
+    }
+
     if (allowedOrigins.includes(origin)) {
-      console.log('Origin allowed:', origin);
       callback(null, true);
     } else {
-      console.warn(`Origin not allowed by CORS:`, origin);
+      console.warn(`Origin blocked:`, origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Aplica CORS globalmente
+app.use(cors(corsOptions));
+
+// Pre-flight
+app.options('*', cors(corsOptions));
+
+// Headers de segurança
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
 
 // Middlewares básicos
 app.use(express.json());

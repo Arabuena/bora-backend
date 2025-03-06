@@ -14,6 +14,10 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://bora-frontend.vercel.app
+        value: https://vextrix.vercel.app
       - key: CORS_ENABLED
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "https://vextrix.vercel.app,https://bora-frontend.vercel.app,http://localhost:3000"
+      - key: TRUST_PROXY
         value: "true"

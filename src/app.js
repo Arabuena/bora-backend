@@ -10,10 +10,10 @@ app.options('*', cors());
 
 // Configuração do CORS
 app.use(cors({
-  origin: true, // Permite todas as origens temporariamente
+  origin: ['https://vextrix.vercel.app', 'http://localhost:3000'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
 // Middlewares básicos
@@ -25,6 +25,7 @@ app.use((req, res, next) => {
   console.log('Request:', {
     method: req.method,
     path: req.path,
+    origin: req.headers.origin,
     headers: req.headers,
     body: req.body
   });

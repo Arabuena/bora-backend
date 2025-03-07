@@ -5,15 +5,12 @@ const authRouter = require('./routes/auth');
 
 const app = express();
 
-// Middleware para OPTIONS
-app.options('*', cors());
-
 // Configuração do CORS
 app.use(cors({
   origin: ['https://vextrix.vercel.app', 'http://localhost:3000'],
-  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
 }));
 
 // Middlewares básicos

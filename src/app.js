@@ -5,39 +5,18 @@ const authRouter = require('./routes/auth');
 
 const app = express();
 
+// Middleware para OPTIONS
+app.options('*', cors());
+
 // Configuração do CORS
-const corsOptions = {
-  origin: function(origin, callback) {
-    // Log para debug
-    console.log('Request Origin:', origin);
-    
-    // Em desenvolvimento ou sem origin, permite
-    if (process.env.NODE_ENV === 'development' || !origin) {
-      return callback(null, true);
-    }
-    
-    const allowedOrigins = [
-      'https://vextrix.vercel.app',
-      'https://bora-frontend.vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.warn(`Origin blocked:`, origin);
-      callback(null, true); // Temporariamente permitindo todas as origens
-    }
-  },
+app.use(cors({
+  origin: true, // Permite todas as origens temporariamente
   credentials: true,
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-// Aplica CORS e outros middlewares
-app.use(cors(corsOptions));
+// Middlewares básicos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -45,8 +24,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   console.log('Request:', {
     method: req.method,
-    url: req.url,
-    origin: req.headers.origin,
+    path: req.path,
+    headers: req.headers,
     body: req.body
   });
   next();
@@ -59,7 +38,7 @@ app.use('/health', healthRouter);
 // Middleware de erro global
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: err.message || 'Algo deu errado!',
     error: process.env.NODE_ENV === 'development' ? err : {}
   });

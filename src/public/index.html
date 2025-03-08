@@ -64,6 +64,11 @@
     </div>
 
     <div class="container">
+        <h2>Token Verification</h2>
+        <button onclick="verifyToken()">Verify Token</button>
+    </div>
+
+    <div class="container">
         <h2>Health Check</h2>
         <button onclick="testHealth()">Test Health</button>
     </div>
@@ -76,10 +81,24 @@
     <div class="container">
         <h2>Response</h2>
         <pre id="response">Results will appear here...</pre>
+        <div id="token-status"></div>
     </div>
 
     <script>
         const API_URL = window.location.origin;
+
+        function formatResponse(data) {
+            const formatted = JSON.stringify(data, null, 2);
+            const html = formatted
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/(".*?")/g, '<span style="color: #a31515">$1</span>')
+                .replace(/\b(true|false)\b/g, '<span style="color: #0000ff">$1</span>')
+                .replace(/(token":\s*"[^"]+)/g, '<span style="color: #4CAF50">$1</span>');
+            
+            document.getElementById('response').innerHTML = html;
+        }
 
         async function testLogin() {
             try {
@@ -95,7 +114,33 @@
                 });
 
                 const data = await response.json();
-                document.getElementById('response').textContent = JSON.stringify(data, null, 2);
+                formatResponse(data);
+                
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    document.getElementById('token-status').innerHTML = 
+                        '<p style="color: green">Token saved to localStorage</p>';
+                }
+            } catch (error) {
+                document.getElementById('response').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function verifyToken() {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No token found in localStorage');
+                }
+
+                const response = await fetch(`${API_URL}/auth/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+                formatResponse(data);
             } catch (error) {
                 document.getElementById('response').textContent = `Error: ${error.message}`;
             }

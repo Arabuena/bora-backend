@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 // Rota de login
@@ -10,19 +11,55 @@ router.post('/login', async (req, res, next) => {
       headers: req.headers
     });
 
-    // TODO: Implementar lógica de login
+    const { email, password } = req.body;
+
+    // TODO: Implementar validação real de usuário
+    // Por enquanto, retorna sucesso para qualquer email/senha
+    const token = jwt.sign(
+      { id: 1, email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
     res.json({
       success: true,
-      token: 'token_temporario',
+      token,
       user: {
         id: 1,
-        email: req.body.email
+        email,
+        name: 'Usuário Teste',
+        created_at: new Date()
       }
     });
 
   } catch (error) {
     console.error('Login error:', error);
     next(error);
+  }
+});
+
+// Rota de verificação de token
+router.get('/verify', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token não fornecido' 
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({
+      success: true,
+      user: decoded
+    });
+  } catch (error) {
+    res.status(401).json({ 
+      success: false, 
+      message: 'Token inválido' 
+    });
   }
 });
 

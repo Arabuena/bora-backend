@@ -1,7 +1,11 @@
+require('dotenv').config();
 const app = require('./app');
 const mongoose = require('mongoose');
 
 const PORT = process.env.PORT || 5000;
+
+// Log para debug
+console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Definido' : 'Indefinido');
 
 // Conexão com MongoDB
 mongoose.connect(process.env.MONGODB_URI, {

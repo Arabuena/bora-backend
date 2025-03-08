@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const healthRouter = require('./routes/health');
 const authRouter = require('./routes/auth');
 
@@ -16,6 +17,7 @@ app.use(cors({
 // Middlewares básicos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Log de todas as requisições
 app.use((req, res, next) => {
@@ -29,7 +31,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rotas
+// Rota raiz serve a página de teste
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Rotas da API
 app.use('/auth', authRouter);
 app.use('/health', healthRouter);
 

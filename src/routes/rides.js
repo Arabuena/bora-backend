@@ -186,18 +186,30 @@ router.post('/:rideId/accept', authenticateToken, async (req, res) => {
 // Iniciar uma corrida
 router.post('/:rideId/start', authenticateToken, async (req, res) => {
   try {
+    console.log('Iniciando corrida:', req.params.rideId);
     const ride = await Ride.findById(req.params.rideId);
     
-    if (!ride || ride.driver.id !== req.user.id) {
+    if (!ride) {
+      console.log('Corrida não encontrada');
       return res.status(404).json({
         success: false,
         message: 'Corrida não encontrada'
       });
     }
 
+    if (ride.driver.id !== req.user.id) {
+      console.log('Motorista não autorizado');
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    console.log('Status anterior:', ride.status);
     ride.status = 'in_progress';
     ride.startTime = new Date();
     await ride.save();
+    console.log('Status atual:', ride.status);
 
     res.json({
       success: true,
@@ -215,18 +227,35 @@ router.post('/:rideId/start', authenticateToken, async (req, res) => {
 // Finalizar uma corrida
 router.post('/:rideId/finish', authenticateToken, async (req, res) => {
   try {
+    console.log('Finalizando corrida:', req.params.rideId);
     const ride = await Ride.findById(req.params.rideId);
     
-    if (!ride || ride.driver.id !== req.user.id) {
+    if (!ride) {
+      console.log('Corrida não encontrada');
       return res.status(404).json({
         success: false,
         message: 'Corrida não encontrada'
       });
     }
 
+    if (ride.driver.id !== req.user.id) {
+      console.log('Motorista não autorizado');
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    console.log('Status anterior:', ride.status);
     ride.status = 'completed';
     ride.endTime = new Date();
+    
+    // Calcula o preço final
+    const duration = (ride.endTime - ride.startTime) / 1000 / 60; // em minutos
+    ride.actualPrice = calculateFinalPrice(ride.distance, duration);
+    
     await ride.save();
+    console.log('Status atual:', ride.status);
 
     res.json({
       success: true,
@@ -240,6 +269,15 @@ router.post('/:rideId/finish', authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Função auxiliar para calcular preço final
+function calculateFinalPrice(distance, duration) {
+  const BASE_PRICE = 5.0;  // Taxa base
+  const PRICE_PER_KM = 2.0;  // Preço por km
+  const PRICE_PER_MINUTE = 0.5;  // Preço por minuto
+
+  return BASE_PRICE + (distance * PRICE_PER_KM) + (duration * PRICE_PER_MINUTE);
+}
 
 // Adicione esta nova rota:
 router.get('/driver/stats', authenticateToken, async (req, res) => {

@@ -31,6 +31,7 @@ const rideSchema = new mongoose.Schema({
   actualPrice: Number,
   startTime: Date,
   endTime: Date,
+  duration: Number,
   createdAt: {
     type: Date,
     default: Date.now

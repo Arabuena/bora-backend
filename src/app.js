@@ -7,40 +7,41 @@ const ridesRouter = require('./routes/rides');
 
 const app = express();
 
-// Configuração do CORS
-app.use(cors({
-  origin: ['https://vextrix.vercel.app', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  credentials: true
-}));
-
-// Middlewares básicos
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-
 // Log de todas as requisições
 app.use((req, res, next) => {
   console.log('Request:', {
     method: req.method,
     path: req.path,
     origin: req.headers.origin,
-    headers: req.headers,
-    body: req.body
+    headers: req.headers
   });
   next();
 });
 
-// Rota raiz serve a página de teste
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// Configuração do CORS
+app.use(cors({
+  origin: ['https://vextrix.vercel.app', 'http://localhost:3000', 'https://bora-backend-5agl.onrender.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Middlewares básicos
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Rotas da API
 app.use('/auth', authRouter);
 app.use('/health', healthRouter);
 app.use('/rides', ridesRouter);
+
+// Servir arquivos estáticos depois das rotas da API
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Rota raiz serve a página de teste
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Middleware de erro global
 app.use((err, req, res, next) => {

@@ -1145,13 +1145,13 @@
                     <div class="flex justify-between items-start">
                         <div>
                             <div class="font-medium flex items-center">
-                                ${conv.userName}
+                                ${conv.userName || 'Usuário'}
                                 <span class="ml-2 text-xs px-2 py-1 bg-gray-200 rounded-full">
                                     ${conv.userRole === 'driver' ? 'Motorista' : 'Passageiro'}
                                 </span>
                             </div>
                             <div class="text-sm text-gray-500 truncate mt-1">
-                                ${conv.lastMessage}
+                                ${conv.lastMessage || ''}
                             </div>
                         </div>
                         <div class="text-xs text-gray-400">
@@ -1408,6 +1408,7 @@
 
         // Adicione esta função de formatação de tempo
         function formatLastMessageTime(date) {
+            if (!date) return '';
             const messageDate = new Date(date);
             const now = new Date();
             const diffHours = Math.abs(now - messageDate) / 36e5;

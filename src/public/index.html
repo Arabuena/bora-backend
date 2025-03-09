@@ -4,10 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bora - App de Corridas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places"></script>
+    
+    <!-- Carregamento correto do Tailwind -->
+    <script src="https://cdn.tailwindcss.com" defer></script>
+    
+    <!-- Carregamento assíncrono do Google Maps -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places&callback=initializeApp">
+    </script>
+
     <style>
-        #map {
+        #map, #driverMap {
             height: 400px;
             width: 100%;
             margin-top: 20px;
@@ -160,15 +167,19 @@
         let currentRide = null;
         let originAutocomplete, destinationAutocomplete;
         let driverMap, driverDirectionsRenderer;
+        let availableRidesInterval;
 
-        // Inicialização
-        document.addEventListener('DOMContentLoaded', () => {
+        // Nova função de inicialização
+        function initializeApp() {
+            // Inicializa os mapas quando o Google Maps estiver carregado
             initMap();
             initAutocomplete();
+            
+            // Verifica autenticação e configura listeners
             checkAuth();
             setupEventListeners();
             initializeRidePolling();
-        });
+        }
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
@@ -583,20 +594,41 @@
         }
 
         function startAvailableRidesPolling() {
-            // Polling para buscar corridas disponíveis
-            availableRidesInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/rides/available', {
-                        headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
-                        }
-                    });
-                    const data = await response.json();
-                    updateAvailableRides(data.rides);
-                } catch (error) {
-                    console.error('Erro ao buscar corridas:', error);
+            // Limpa intervalo anterior se existir
+            if (availableRidesInterval) {
+                clearInterval(availableRidesInterval);
+            }
+
+            // Faz primeira busca imediatamente
+            fetchAvailableRides();
+
+            // Configura polling
+            availableRidesInterval = setInterval(fetchAvailableRides, 5000);
+        }
+
+        // Nova função para buscar corridas
+        async function fetchAvailableRides() {
+            try {
+                const response = await fetch('/rides/available', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            }, 5000);
+
+                const data = await response.json();
+                if (data.success) {
+                    updateAvailableRides(data.rides);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar corridas:', error);
+                // Não mostra alerta para não irritar o usuário
+                // Apenas atualiza a interface mostrando que não há corridas
+                updateAvailableRides([]);
+            }
         }
 
         function updateAvailableRides(rides) {

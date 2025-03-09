@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const healthRouter = require('./routes/health');
 const authRouter = require('./routes/auth');
+const ridesRouter = require('./routes/rides');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.get('/', (req, res) => {
 // Rotas da API
 app.use('/auth', authRouter);
 app.use('/health', healthRouter);
+app.use('/rides', ridesRouter);
 
 // Middleware de erro global
 app.use((err, req, res, next) => {

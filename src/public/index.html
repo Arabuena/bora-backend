@@ -56,9 +56,15 @@
 
     <!-- Tela Principal (após login) -->
     <div id="mainScreen" class="hidden container mx-auto mt-10 p-4">
+        <!-- Grid container com ordem diferente para mobile -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Formulário de Corrida -->
-            <div class="bg-white p-6 rounded-lg shadow-lg">
+            <!-- Mapa - ordem 1 em mobile, 2 em desktop -->
+            <div class="bg-white p-6 rounded-lg shadow-lg order-1 md:order-2">
+                <div id="map"></div>
+            </div>
+
+            <!-- Formulário de Corrida - ordem 2 em mobile, 1 em desktop -->
+            <div class="bg-white p-6 rounded-lg shadow-lg order-2 md:order-1">
                 <h3 class="text-xl font-bold mb-4">Solicitar Corrida</h3>
                 <form id="rideForm" class="space-y-4">
                     <div>
@@ -73,11 +79,6 @@
                         Solicitar
                     </button>
                 </form>
-            </div>
-
-            <!-- Mapa -->
-            <div class="bg-white p-6 rounded-lg shadow-lg">
-                <div id="map"></div>
             </div>
         </div>
 

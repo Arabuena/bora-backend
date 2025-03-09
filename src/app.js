@@ -4,6 +4,7 @@ const path = require('path');
 const healthRouter = require('./routes/health');
 const authRouter = require('./routes/auth');
 const ridesRouter = require('./routes/rides');
+const adminRouter = require('./routes/admin');
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/auth', authRouter);
 app.use('/health', healthRouter);
 app.use('/rides', ridesRouter);
+app.use('/admin', adminRouter);
 
 // Servir arquivos estáticos depois das rotas da API
 app.use(express.static(path.join(__dirname, 'public')));

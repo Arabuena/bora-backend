@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bora - App de Corridas</title>
     
-    <!-- Carregamento do Tailwind via CDN (apenas para desenvolvimento) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Substitua o CDN do Tailwind por uma versão compilada -->
+    <link href="/css/tailwind.css" rel="stylesheet">
     
     <style>
         #map, #driverMap {
@@ -1405,6 +1405,63 @@
                 alert('Erro ao rejeitar motorista');
             }
         }
+
+        // Adicione esta função de formatação de tempo
+        function formatLastMessageTime(date) {
+            const messageDate = new Date(date);
+            const now = new Date();
+            const diffHours = Math.abs(now - messageDate) / 36e5;
+
+            if (diffHours < 24) {
+                return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            return messageDate.toLocaleDateString();
+        }
+
+        // Modifique a função de carregamento do Google Maps
+        function loadGoogleMapsAsync() {
+            return new Promise((resolve, reject) => {
+                if (window.google) {
+                    resolve(window.google.maps);
+                    return;
+                }
+
+                window.initGoogleMaps = () => {
+                    resolve(window.google.maps);
+                };
+
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places&callback=initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // Modifique a inicialização do mapa
+        async function initMap() {
+            try {
+                await loadGoogleMapsAsync();
+                
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: { lat: -23.550520, lng: -46.633308 },
+                    zoom: 12
+                });
+
+                // Inicializa os autocomplete
+                initAutocomplete();
+            } catch (error) {
+                console.error('Erro ao carregar Google Maps:', error);
+            }
+        }
+
+        // Modifique o carregamento inicial
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            checkAuth();
+            setupEventListeners();
+        });
     </script>
 </body>
 </html> 

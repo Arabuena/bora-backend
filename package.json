@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "echo 'No build step needed for backend'"
+    "build": "echo 'No build step needed for backend'",
+    "build:css": "tailwindcss -i ./src/css/input.css -o ./src/public/css/tailwind.css",
+    "watch:css": "tailwindcss -i ./src/css/input.css -o ./src/public/css/tailwind.css --watch"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

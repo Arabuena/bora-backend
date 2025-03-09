@@ -214,37 +214,45 @@
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold">Dashboard Administrativo</h1>
             <div class="flex space-x-4">
-                <button onclick="showAdminDashboard()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                <button onclick="showAdminDashboard()" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                     Dashboard
                 </button>
-                <button onclick="showAdminSupportScreen()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                <button onclick="showRidesManagement()" 
+                    class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    Gerenciar Corridas
+                </button>
+                <button onclick="showAdminSupportScreen()" 
+                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
                     Suporte
                 </button>
             </div>
         </div>
 
-        <!-- Conteúdo do dashboard será adicionado aqui -->
         <div id="adminDashboardContent" class="space-y-8">
-            <!-- Adicione esta seção dentro da div id="adminDashboard" -->
+            <!-- Estatísticas gerais -->
+            <div id="generalStats" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <!-- Será preenchido dinamicamente -->
+            </div>
+
+            <!-- Estatísticas de corridas -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <!-- Estatísticas de Corridas -->
                 <div class="bg-white p-6 rounded-lg shadow">
                     <h3 class="text-lg font-semibold mb-4">Estatísticas de Corridas</h3>
                     <div id="ridesStats" class="grid grid-cols-2 gap-4">
-                        <!-- Estatísticas serão inseridas aqui -->
+                        <!-- Será preenchido dinamicamente -->
                     </div>
                 </div>
 
-                <!-- Gráfico de Status -->
                 <div class="bg-white p-6 rounded-lg shadow">
                     <h3 class="text-lg font-semibold mb-4">Status das Corridas</h3>
                     <div id="ridesChart" class="h-64">
-                        <!-- Gráfico será inserido aqui -->
+                        <!-- Será preenchido dinamicamente -->
                     </div>
                 </div>
             </div>
 
-            <!-- Lista de Corridas -->
+            <!-- Lista de corridas -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="p-4 border-b">
                     <h3 class="text-lg font-semibold">Corridas Recentes</h3>
@@ -262,7 +270,70 @@
                             </tr>
                         </thead>
                         <tbody id="ridesList" class="bg-white divide-y divide-gray-200">
-                            <!-- Corridas serão inseridas aqui -->
+                            <!-- Será preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Motoristas pendentes -->
+            <div id="pendingDriversSection" class="bg-white p-6 rounded-lg shadow">
+                <!-- Será preenchido dinamicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Adicione uma nova div para o gerenciamento de corridas -->
+    <div id="ridesManagement" class="hidden container mx-auto mt-10 p-4">
+        <div class="space-y-8">
+            <!-- Filtros e Ações -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">Filtros</h3>
+                    <button onclick="printRidesReport()" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Imprimir Relatório
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <select id="statusFilter" class="p-2 border rounded" onchange="filterRides()">
+                        <option value="">Todos os Status</option>
+                        <option value="searching">Buscando</option>
+                        <option value="accepted">Aceita</option>
+                        <option value="in_progress">Em Andamento</option>
+                        <option value="completed">Concluída</option>
+                        <option value="cancelled">Cancelada</option>
+                    </select>
+                    <input type="date" id="dateFilter" class="p-2 border rounded" onchange="filterRides()">
+                    <input type="text" id="searchFilter" 
+                        placeholder="Buscar por ID, passageiro ou motorista" 
+                        class="p-2 border rounded" 
+                        oninput="filterRides()">
+                </div>
+            </div>
+
+            <!-- Lista de Corridas -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold">Corridas</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Passageiro</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Origem</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destino</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ridesListDetailed" class="bg-white divide-y divide-gray-200">
+                            <!-- Será preenchido dinamicamente -->
                         </tbody>
                     </table>
                 </div>
@@ -1428,62 +1499,73 @@
                 });
                 const driversData = await driversResponse.json();
 
-                // Atualiza o conteúdo do dashboard
-                const dashboardContent = document.getElementById('adminDashboardContent');
-                dashboardContent.innerHTML = `
-                    <!-- Estatísticas -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="bg-white p-6 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold text-gray-600">Motoristas Ativos</h3>
-                            <p class="text-3xl font-bold">${statsData.activeDrivers || 0}</p>
-                        </div>
-                        <div class="bg-white p-6 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold text-gray-600">Motoristas Pendentes</h3>
-                            <p class="text-3xl font-bold">${statsData.pendingDrivers || 0}</p>
-                        </div>
-                        <div class="bg-white p-6 rounded-lg shadow">
-                            <h3 class="text-lg font-semibold text-gray-600">Total de Passageiros</h3>
-                            <p class="text-3xl font-bold">${statsData.totalPassengers || 0}</p>
-                        </div>
-                    </div>
+                // Atualiza apenas a seção de estatísticas gerais
+                const generalStats = document.getElementById('generalStats');
+                if (!generalStats) {
+                    // Se a seção não existe, cria ela
+                    const dashboardContent = document.getElementById('adminDashboardContent');
+                    const statsSection = document.createElement('div');
+                    statsSection.id = 'generalStats';
+                    statsSection.className = 'grid grid-cols-1 md:grid-cols-3 gap-6 mb-8';
+                    dashboardContent.insertBefore(statsSection, dashboardContent.firstChild);
+                }
 
-                    <!-- Lista de Motoristas Pendentes -->
-                    <div class="bg-white p-6 rounded-lg shadow mt-6">
-                        <h3 class="text-xl font-semibold mb-4">Motoristas Pendentes</h3>
-                        ${driversData.length > 0 ? `
-                            <div class="divide-y">
-                                ${driversData.map(driver => `
-                                    <div class="py-4">
-                                        <div class="flex justify-between items-start">
-                                            <div>
-                                                <h4 class="font-medium">${driver.name}</h4>
-                                                <p class="text-sm text-gray-600">${driver.email}</p>
-                                                <p class="text-sm text-gray-600">Veículo: ${driver.vehicle?.model || 'N/A'}</p>
-                                            </div>
-                                            <div class="flex space-x-2">
-                                                <button onclick="approveDriver('${driver._id}')" 
-                                                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
-                                                    Aprovar
-                                                </button>
-                                                <button onclick="rejectDriver('${driver._id}')"
-                                                    class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
-                                                    Rejeitar
-                                                </button>
-                                            </div>
+                // Atualiza o conteúdo das estatísticas gerais
+                generalStats.innerHTML = `
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-gray-600">Motoristas Ativos</h3>
+                        <p class="text-3xl font-bold">${statsData.activeDrivers || 0}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-gray-600">Motoristas Pendentes</h3>
+                        <p class="text-3xl font-bold">${statsData.pendingDrivers || 0}</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold text-gray-600">Total de Passageiros</h3>
+                        <p class="text-3xl font-bold">${statsData.totalPassengers || 0}</p>
+                    </div>
+                `;
+
+                // Atualiza a seção de motoristas pendentes
+                const pendingDriversSection = document.getElementById('pendingDriversSection');
+                if (!pendingDriversSection) {
+                    const section = document.createElement('div');
+                    section.id = 'pendingDriversSection';
+                    section.className = 'bg-white p-6 rounded-lg shadow mt-6';
+                    document.getElementById('adminDashboardContent').appendChild(section);
+                }
+
+                pendingDriversSection.innerHTML = `
+                    <h3 class="text-xl font-semibold mb-4">Motoristas Pendentes</h3>
+                    ${driversData.length > 0 ? `
+                        <div class="divide-y">
+                            ${driversData.map(driver => `
+                                <div class="py-4">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-semibold">${driver.name}</h4>
+                                            <p class="text-sm text-gray-600">${driver.email}</p>
+                                            <p class="text-sm text-gray-600">Veículo: ${driver.vehicle?.model || 'Não informado'}</p>
+                                        </div>
+                                        <div class="space-x-2">
+                                            <button onclick="approveDriver('${driver._id}')"
+                                                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                                                Aprovar
+                                            </button>
+                                            <button onclick="rejectDriver('${driver._id}')"
+                                                class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                                                Rejeitar
+                                            </button>
                                         </div>
                                     </div>
-                                `).join('')}
-                            </div>
-                        ` : '<p class="text-gray-500">Nenhum motorista pendente</p>'}
-                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : '<p class="text-gray-500">Nenhum motorista pendente</p>'}
                 `;
+
             } catch (error) {
                 console.error('Erro ao carregar dados do dashboard:', error);
-                document.getElementById('adminDashboardContent').innerHTML = `
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                        Erro ao carregar dados do dashboard
-                    </div>
-                `;
             }
         }
 
@@ -1684,6 +1766,124 @@
                 console.error('Erro ao cancelar corrida:', error);
                 alert('Erro ao cancelar corrida');
             }
+        }
+
+        // Função para mostrar a tela de gerenciamento de corridas
+        function showRidesManagement() {
+            // Esconde outras telas
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('adminSupportScreen').classList.add('hidden');
+            document.getElementById('ridesManagement').classList.remove('hidden');
+            
+            // Carrega os dados
+            loadDetailedRidesData();
+        }
+
+        // Função para carregar dados detalhados das corridas
+        async function loadDetailedRidesData() {
+            try {
+                const response = await fetch('/admin/rides', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const rides = await response.json();
+                updateDetailedRidesTable(rides);
+            } catch (error) {
+                console.error('Erro ao carregar dados das corridas:', error);
+            }
+        }
+
+        // Função para atualizar a tabela detalhada de corridas
+        function updateDetailedRidesTable(rides) {
+            const tbody = document.getElementById('ridesListDetailed');
+            tbody.innerHTML = rides.map(ride => {
+                const date = new Date(ride.createdAt).toLocaleString();
+                const estimatedPrice = ride.estimatedPrice ? Number(ride.estimatedPrice).toFixed(2) : '0.00';
+                const passengerName = ride.passenger?.name || 'Passageiro não identificado';
+                const driverName = ride.driver?.name || 'Não atribuído';
+                
+                return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${ride._id || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${passengerName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${driverName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${ride.origin || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">${ride.destination || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${getStatusColor(ride.status)}">
+                                ${getStatusText(ride.status || 'unknown')}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">R$ ${estimatedPrice}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                            ${ride.status && ride.status !== 'cancelled' ? `
+                                <button onclick="cancelRide('${ride._id}')" 
+                                    class="text-red-600 hover:text-red-900">
+                                    Cancelar
+                                </button>
+                            ` : ''}
+                            <button onclick="viewRideDetails('${ride._id}')"
+                                class="text-blue-600 hover:text-blue-900">
+                                Detalhes
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Função para filtrar corridas
+        function filterRides() {
+            const status = document.getElementById('statusFilter').value;
+            const date = document.getElementById('dateFilter').value;
+            const search = document.getElementById('searchFilter').value.toLowerCase();
+
+            const rows = document.getElementById('ridesListDetailed').getElementsByTagName('tr');
+            
+            Array.from(rows).forEach(row => {
+                const statusMatch = !status || row.querySelector('span').textContent.includes(status);
+                const dateMatch = !date || row.cells[1].textContent.includes(date);
+                const searchMatch = !search || 
+                    row.cells[0].textContent.toLowerCase().includes(search) || // ID
+                    row.cells[2].textContent.toLowerCase().includes(search) || // Passageiro
+                    row.cells[3].textContent.toLowerCase().includes(search);   // Motorista
+
+                row.style.display = statusMatch && dateMatch && searchMatch ? '' : 'none';
+            });
+        }
+
+        // Função para imprimir relatório
+        function printRidesReport() {
+            const printWindow = window.open('', '_blank');
+            const table = document.getElementById('ridesListDetailed').cloneNode(true);
+            
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Relatório de Corridas</title>
+                        <style>
+                            table { border-collapse: collapse; width: 100%; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f8f9fa; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Relatório de Corridas</h1>
+                        <p>Data: ${new Date().toLocaleDateString()}</p>
+                        <table>${table.outerHTML}</table>
+                    </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Função para ver detalhes da corrida
+        function viewRideDetails(rideId) {
+            // Implementar modal ou navegação para detalhes da corrida
+            alert('Funcionalidade em desenvolvimento');
         }
     </script>
 </body>

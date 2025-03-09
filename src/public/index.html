@@ -313,7 +313,13 @@
                 if (data.success) {
                     localStorage.setItem('token', data.token);
                     currentUser = data.user;
-                    showMainScreen();
+                    
+                    // Verifica se é motorista ou passageiro
+                    if (email.includes('driver')) {
+                        showDriverScreen();
+                    } else {
+                        showMainScreen();
+                    }
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -326,6 +332,17 @@
             document.getElementById('mainScreen').classList.remove('hidden');
             document.getElementById('userInfo').classList.remove('hidden');
             document.getElementById('userName').textContent = currentUser.email;
+        }
+
+        function showDriverScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('driverScreen').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            document.getElementById('userName').textContent = currentUser.email;
+            
+            // Inicializa o modo motorista
+            initializeDriverMode();
         }
 
         async function handleRideRequest(e) {

@@ -94,10 +94,12 @@
         let map, originMarker, destinationMarker, directionsRenderer;
         let currentUser = null;
         let currentRide = null;
+        let originAutocomplete, destinationAutocomplete;
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             initMap();
+            initAutocomplete();
             checkAuth();
             setupEventListeners();
             initializeRidePolling();
@@ -106,15 +108,129 @@
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: { lat: -23.550520, lng: -46.633308 }, // São Paulo
-                zoom: 12
+                zoom: 12,
+                mapTypeControl: false
             });
             directionsRenderer = new google.maps.DirectionsRenderer();
             directionsRenderer.setMap(map);
         }
 
+        function initAutocomplete() {
+            // Opções do autocomplete
+            const options = {
+                componentRestrictions: { country: 'br' },
+                fields: ['formatted_address', 'geometry', 'name'],
+                strictBounds: false
+            };
+
+            // Inicializa autocomplete para origem
+            originAutocomplete = new google.maps.places.Autocomplete(
+                document.getElementById('origin'),
+                options
+            );
+
+            // Inicializa autocomplete para destino
+            destinationAutocomplete = new google.maps.places.Autocomplete(
+                document.getElementById('destination'),
+                options
+            );
+
+            // Listeners para quando um lugar é selecionado
+            originAutocomplete.addListener('place_changed', () => {
+                const place = originAutocomplete.getPlace();
+                if (place.geometry) {
+                    updateOriginMarker(place.geometry.location);
+                    tryDrawRoute();
+                }
+            });
+
+            destinationAutocomplete.addListener('place_changed', () => {
+                const place = destinationAutocomplete.getPlace();
+                if (place.geometry) {
+                    updateDestinationMarker(place.geometry.location);
+                    tryDrawRoute();
+                }
+            });
+        }
+
+        function updateOriginMarker(location) {
+            if (originMarker) {
+                originMarker.setMap(null);
+            }
+            originMarker = new google.maps.Marker({
+                map: map,
+                position: location,
+                title: 'Origem',
+                icon: {
+                    url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png'
+                }
+            });
+            map.panTo(location);
+        }
+
+        function updateDestinationMarker(location) {
+            if (destinationMarker) {
+                destinationMarker.setMap(null);
+            }
+            destinationMarker = new google.maps.Marker({
+                map: map,
+                position: location,
+                title: 'Destino',
+                icon: {
+                    url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                }
+            });
+            map.panTo(location);
+        }
+
+        function tryDrawRoute() {
+            const origin = document.getElementById('origin').value;
+            const destination = document.getElementById('destination').value;
+
+            if (origin && destination) {
+                calculateRoute(origin, destination)
+                    .then(routeDetails => {
+                        // Atualiza a interface com os detalhes da rota
+                        showRouteDetails(routeDetails);
+                    })
+                    .catch(error => {
+                        console.error('Erro ao calcular rota:', error);
+                    });
+            }
+        }
+
+        function showRouteDetails(routeDetails) {
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'bg-white p-4 rounded-lg shadow mt-4';
+            detailsDiv.innerHTML = `
+                <h4 class="font-bold mb-2">Detalhes da Rota</h4>
+                <p><strong>Distância:</strong> ${routeDetails.leg.distance.text}</p>
+                <p><strong>Tempo estimado:</strong> ${routeDetails.leg.duration.text}</p>
+                <p><strong>Preço estimado:</strong> R$ ${routeDetails.price}</p>
+            `;
+
+            // Remove detalhes anteriores se existirem
+            const oldDetails = document.querySelector('.route-details');
+            if (oldDetails) {
+                oldDetails.remove();
+            }
+
+            detailsDiv.classList.add('route-details');
+            document.getElementById('rideForm').appendChild(detailsDiv);
+        }
+
         function setupEventListeners() {
             document.getElementById('loginForm').addEventListener('submit', handleLogin);
             document.getElementById('rideForm').addEventListener('submit', handleRideRequest);
+
+            // Previne o envio do formulário ao pressionar Enter nos campos de endereço
+            ['origin', 'destination'].forEach(id => {
+                document.getElementById(id).addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                    }
+                });
+            });
         }
 
         async function handleLogin(e) {

@@ -1579,48 +1579,59 @@
         // Função para atualizar a tabela de corridas
         function updateRidesTable(rides) {
             const tbody = document.getElementById('ridesList');
-            tbody.innerHTML = rides.map(ride => `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ride._id}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${ride.passenger.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${ride.driver?.name || 'Não atribuído'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${getStatusColor(ride.status)}">
-                            ${getStatusText(ride.status)}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap">R$ ${ride.estimatedPrice.toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        ${ride.status !== 'cancelled' ? `
-                            <button onclick="cancelRide('${ride._id}')" 
-                                class="text-red-600 hover:text-red-900">
-                                Cancelar
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = rides.map(ride => {
+                const estimatedPrice = ride.estimatedPrice ? Number(ride.estimatedPrice).toFixed(2) : '0.00';
+                const passengerName = ride.passenger?.name || 'Passageiro não identificado';
+                const driverName = ride.driver?.name || 'Não atribuído';
+                
+                return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ride._id || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${passengerName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">${driverName}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                ${getStatusColor(ride.status)}">
+                                ${getStatusText(ride.status || 'unknown')}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">R$ ${estimatedPrice}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${ride.status && ride.status !== 'cancelled' ? `
+                                <button onclick="cancelRide('${ride._id}')" 
+                                    class="text-red-600 hover:text-red-900">
+                                    Cancelar
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // Função para atualizar estatísticas
         function updateRidesStats(stats) {
+            const total = stats.reduce((acc, stat) => acc + (stat.count || 0), 0);
+            const totalValue = stats.reduce((acc, stat) => acc + (stat.totalValue || 0), 0);
+            const active = stats.find(s => s._id === 'in_progress')?.count || 0;
+            const completed = stats.find(s => s._id === 'completed')?.count || 0;
+
             const statsContainer = document.getElementById('ridesStats');
             statsContainer.innerHTML = `
                 <div class="bg-blue-50 p-4 rounded">
-                    <div class="text-2xl font-bold text-blue-700">${stats.total || 0}</div>
+                    <div class="text-2xl font-bold text-blue-700">${total}</div>
                     <div class="text-sm text-blue-600">Total de Corridas</div>
                 </div>
                 <div class="bg-green-50 p-4 rounded">
-                    <div class="text-2xl font-bold text-green-700">R$ ${(stats.totalValue || 0).toFixed(2)}</div>
+                    <div class="text-2xl font-bold text-green-700">R$ ${totalValue.toFixed(2)}</div>
                     <div class="text-sm text-green-600">Valor Total</div>
                 </div>
                 <div class="bg-yellow-50 p-4 rounded">
-                    <div class="text-2xl font-bold text-yellow-700">${stats.active || 0}</div>
+                    <div class="text-2xl font-bold text-yellow-700">${active}</div>
                     <div class="text-sm text-yellow-600">Corridas Ativas</div>
                 </div>
                 <div class="bg-purple-50 p-4 rounded">
-                    <div class="text-2xl font-bold text-purple-700">${stats.completed || 0}</div>
+                    <div class="text-2xl font-bold text-purple-700">${completed}</div>
                     <div class="text-sm text-purple-600">Corridas Concluídas</div>
                 </div>
             `;
@@ -1647,6 +1658,32 @@
                 'cancelled': 'Cancelada'
             };
             return texts[status] || status;
+        }
+
+        // Adicione a função para cancelar corrida
+        async function cancelRide(rideId) {
+            if (!confirm('Tem certeza que deseja cancelar esta corrida?')) return;
+
+            try {
+                const response = await fetch(`/admin/rides/${rideId}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason: 'Cancelado pelo administrador' })
+                });
+
+                if (response.ok) {
+                    loadRidesData(); // Recarrega os dados
+                    alert('Corrida cancelada com sucesso!');
+                } else {
+                    throw new Error('Erro ao cancelar corrida');
+                }
+            } catch (error) {
+                console.error('Erro ao cancelar corrida:', error);
+                alert('Erro ao cancelar corrida');
+            }
         }
     </script>
 </body>

@@ -91,6 +91,69 @@
         </div>
     </div>
 
+    <!-- Tela do Motorista -->
+    <div id="driverScreen" class="hidden container mx-auto mt-10 p-4">
+        <!-- Status do Motorista -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Status do Motorista</h3>
+                <div class="flex items-center">
+                    <span id="driverStatus" class="mr-4 text-gray-600">Offline</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="statusToggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div id="driverInfo" class="space-y-2">
+                <p><strong>Total de corridas hoje:</strong> <span id="ridesCount">0</span></p>
+                <p><strong>Ganhos hoje:</strong> R$ <span id="earningsToday">0.00</span></p>
+            </div>
+        </div>
+
+        <!-- Corridas Disponíveis -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <h3 class="text-xl font-bold mb-4">Corridas Disponíveis</h3>
+            <div id="availableRides" class="space-y-4">
+                <!-- As corridas disponíveis serão inseridas aqui -->
+            </div>
+        </div>
+
+        <!-- Corrida Atual -->
+        <div id="currentRideCard" class="hidden bg-white p-6 rounded-lg shadow-lg">
+            <h3 class="text-xl font-bold mb-4">Corrida em Andamento</h3>
+            <div id="currentRideInfo" class="space-y-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Passageiro</p>
+                            <p id="passengerName" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Origem</p>
+                            <p id="currentRideOrigin" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Destino</p>
+                            <p id="currentRideDestination" class="font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button id="startRideBtn" class="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600">
+                        Iniciar Corrida
+                    </button>
+                    <button id="finishRideBtn" class="hidden flex-1 bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
+                        Finalizar Corrida
+                    </button>
+                    <button id="cancelRideBtn" class="bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let map, originMarker, destinationMarker, directionsRenderer;
         let currentUser = null;
@@ -477,6 +540,130 @@
 
             statusUpdate.className = `p-4 rounded-lg ${statusClass}`;
             statusUpdate.innerHTML = `<p>${statusText}</p>`;
+        }
+
+        // Funções do Motorista
+        function initializeDriverMode() {
+            const statusToggle = document.getElementById('statusToggle');
+            statusToggle.addEventListener('change', toggleDriverStatus);
+            
+            // Inicializa polling de corridas disponíveis
+            startAvailableRidesPolling();
+        }
+
+        function toggleDriverStatus(e) {
+            const isOnline = e.target.checked;
+            const statusText = document.getElementById('driverStatus');
+            statusText.textContent = isOnline ? 'Online' : 'Offline';
+            statusText.className = isOnline ? 'text-green-600' : 'text-gray-600';
+
+            if (isOnline) {
+                startAvailableRidesPolling();
+            } else {
+                stopAvailableRidesPolling();
+            }
+        }
+
+        function startAvailableRidesPolling() {
+            // Polling para buscar corridas disponíveis
+            availableRidesInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/rides/available', {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+                    const data = await response.json();
+                    updateAvailableRides(data.rides);
+                } catch (error) {
+                    console.error('Erro ao buscar corridas:', error);
+                }
+            }, 5000);
+        }
+
+        function updateAvailableRides(rides) {
+            const container = document.getElementById('availableRides');
+            container.innerHTML = '';
+
+            if (!rides || rides.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">Nenhuma corrida disponível no momento</p>';
+                return;
+            }
+
+            rides.forEach(ride => {
+                const rideCard = document.createElement('div');
+                rideCard.className = 'bg-gray-50 p-4 rounded-lg';
+                rideCard.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Origem</p>
+                            <p class="font-medium">${ride.origin}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Destino</p>
+                            <p class="font-medium">${ride.destination}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Distância</p>
+                            <p class="font-medium">${(ride.distance / 1000).toFixed(1)} km</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Valor Estimado</p>
+                            <p class="font-medium">R$ ${ride.estimatedPrice.toFixed(2)}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="acceptRide('${ride._id}')" 
+                        class="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+                    >
+                        Aceitar Corrida
+                    </button>
+                `;
+                container.appendChild(rideCard);
+            });
+        }
+
+        async function acceptRide(rideId) {
+            try {
+                const response = await fetch(`/rides/${rideId}/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showCurrentRide(data.ride);
+                    stopAvailableRidesPolling();
+                }
+            } catch (error) {
+                console.error('Erro ao aceitar corrida:', error);
+                alert('Não foi possível aceitar a corrida');
+            }
+        }
+
+        function showCurrentRide(ride) {
+            document.getElementById('currentRideCard').classList.remove('hidden');
+            document.getElementById('passengerName').textContent = ride.passenger.name;
+            document.getElementById('currentRideOrigin').textContent = ride.origin;
+            document.getElementById('currentRideDestination').textContent = ride.destination;
+
+            // Atualiza visibilidade dos botões baseado no status
+            const startBtn = document.getElementById('startRideBtn');
+            const finishBtn = document.getElementById('finishRideBtn');
+            
+            if (ride.status === 'accepted') {
+                startBtn.classList.remove('hidden');
+                finishBtn.classList.add('hidden');
+            } else if (ride.status === 'in_progress') {
+                startBtn.classList.add('hidden');
+                finishBtn.classList.remove('hidden');
+            }
+        }
+
+        function stopAvailableRidesPolling() {
+            clearInterval(availableRidesInterval);
         }
     </script>
 </body>

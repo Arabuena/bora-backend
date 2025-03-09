@@ -159,6 +159,7 @@
         let currentUser = null;
         let currentRide = null;
         let originAutocomplete, destinationAutocomplete;
+        let driverMap, driverDirectionsRenderer;
 
         // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
@@ -666,21 +667,183 @@
             document.getElementById('currentRideOrigin').textContent = ride.origin;
             document.getElementById('currentRideDestination').textContent = ride.destination;
 
+            // Adicione um mapa para o motorista
+            if (!document.getElementById('driverMap')) {
+                const mapDiv = document.createElement('div');
+                mapDiv.id = 'driverMap';
+                mapDiv.style.height = '400px';
+                mapDiv.style.marginTop = '20px';
+                mapDiv.className = 'rounded-lg';
+                document.getElementById('currentRideInfo').insertBefore(mapDiv, document.getElementById('currentRideInfo').firstChild);
+                
+                // Inicializa o mapa do motorista
+                initializeDriverMap();
+            }
+
             // Atualiza visibilidade dos botões baseado no status
             const startBtn = document.getElementById('startRideBtn');
             const finishBtn = document.getElementById('finishRideBtn');
+            const cancelBtn = document.getElementById('cancelRideBtn');
+            
+            // Adiciona os event listeners
+            startBtn.onclick = () => startRide(ride._id);
+            finishBtn.onclick = () => finishRide(ride._id);
+            cancelBtn.onclick = () => cancelRide(ride._id);
             
             if (ride.status === 'accepted') {
+                // Mostra rota até o passageiro
+                showRouteToPassenger(ride.origin);
                 startBtn.classList.remove('hidden');
                 finishBtn.classList.add('hidden');
             } else if (ride.status === 'in_progress') {
+                // Mostra rota até o destino
+                showRouteToDestination(ride.origin, ride.destination);
                 startBtn.classList.add('hidden');
                 finishBtn.classList.remove('hidden');
             }
         }
 
+        async function startRide(rideId) {
+            try {
+                const response = await fetch(`/rides/${rideId}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showCurrentRide(data.ride);
+                    // Atualiza o mapa com a rota atual
+                    calculateRoute(data.ride.origin, data.ride.destination);
+                }
+            } catch (error) {
+                console.error('Erro ao iniciar corrida:', error);
+                alert('Não foi possível iniciar a corrida');
+            }
+        }
+
+        async function finishRide(rideId) {
+            try {
+                const response = await fetch(`/rides/${rideId}/finish`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Atualiza estatísticas do motorista
+                    updateDriverStats();
+                    // Limpa a corrida atual
+                    document.getElementById('currentRideCard').classList.add('hidden');
+                    // Volta a mostrar corridas disponíveis
+                    startAvailableRidesPolling();
+                }
+            } catch (error) {
+                console.error('Erro ao finalizar corrida:', error);
+                alert('Não foi possível finalizar a corrida');
+            }
+        }
+
+        // Função para atualizar estatísticas do motorista
+        async function updateDriverStats() {
+            try {
+                const response = await fetch('/rides/driver/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('ridesCount').textContent = data.stats.ridesCount;
+                    document.getElementById('earningsToday').textContent = data.stats.earningsToday.toFixed(2);
+                }
+            } catch (error) {
+                console.error('Erro ao atualizar estatísticas:', error);
+            }
+        }
+
         function stopAvailableRidesPolling() {
             clearInterval(availableRidesInterval);
+        }
+
+        function initializeDriverMap() {
+            driverMap = new google.maps.Map(document.getElementById('driverMap'), {
+                center: { lat: -23.550520, lng: -46.633308 }, // São Paulo
+                zoom: 12,
+                mapTypeControl: false
+            });
+            driverDirectionsRenderer = new google.maps.DirectionsRenderer();
+            driverDirectionsRenderer.setMap(driverMap);
+        }
+
+        function showRouteToPassenger(passengerLocation) {
+            // Obter localização atual do motorista
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const driverLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        calculateDriverRoute(driverLocation, passengerLocation, 'toPassenger');
+                    },
+                    (error) => {
+                        console.error('Erro ao obter localização:', error);
+                        alert('Não foi possível obter sua localização atual');
+                    }
+                );
+            }
+        }
+
+        function showRouteToDestination(origin, destination) {
+            calculateDriverRoute(origin, destination, 'toDestination');
+        }
+
+        function calculateDriverRoute(origin, destination, type) {
+            const directionsService = new google.maps.DirectionsService();
+            directionsService.route(
+                {
+                    origin: origin,
+                    destination: destination,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                },
+                (response, status) => {
+                    if (status === "OK") {
+                        driverDirectionsRenderer.setDirections(response);
+                        const leg = response.routes[0].legs[0];
+                        
+                        // Atualiza informações da rota
+                        const routeInfo = document.createElement('div');
+                        routeInfo.className = 'mt-4 p-4 bg-blue-50 rounded-lg';
+                        routeInfo.innerHTML = `
+                            <p class="font-medium">
+                                ${type === 'toPassenger' ? 'Distância até o passageiro' : 'Distância até o destino'}:
+                                ${leg.distance.text}
+                            </p>
+                            <p class="text-gray-600">
+                                Tempo estimado: ${leg.duration.text}
+                            </p>
+                        `;
+
+                        // Atualiza ou adiciona as informações da rota
+                        const existingRouteInfo = document.querySelector('.route-info');
+                        if (existingRouteInfo) {
+                            existingRouteInfo.replaceWith(routeInfo);
+                        } else {
+                            document.getElementById('currentRideInfo').insertBefore(
+                                routeInfo,
+                                document.getElementById('currentRideInfo').firstChild.nextSibling
+                            );
+                        }
+                        routeInfo.classList.add('route-info');
+                    }
+                }
+            );
         }
     </script>
 </body>

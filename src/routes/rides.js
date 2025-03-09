@@ -241,4 +241,40 @@ router.post('/:rideId/finish', authenticateToken, async (req, res) => {
   }
 });
 
+// Adicione esta nova rota:
+router.get('/driver/stats', authenticateToken, async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const stats = await Ride.aggregate([
+            {
+                $match: {
+                    'driver.id': req.user.id,
+                    status: 'completed',
+                    endTime: { $gte: today }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    ridesCount: { $sum: 1 },
+                    earningsToday: { $sum: '$actualPrice' }
+                }
+            }
+        ]);
+
+        res.json({
+            success: true,
+            stats: stats[0] || { ridesCount: 0, earningsToday: 0 }
+        });
+    } catch (error) {
+        console.error('Erro ao buscar estatísticas:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro ao buscar estatísticas'
+        });
+    }
+});
+
 module.exports = router; 

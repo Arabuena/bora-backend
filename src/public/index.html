@@ -5,14 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bora - App de Corridas</title>
     
-    <!-- Carregamento correto do Tailwind -->
-    <script src="https://cdn.tailwindcss.com" defer></script>
+    <!-- Carregamento do Tailwind via CDN (apenas para desenvolvimento) -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Carregamento assíncrono do Google Maps -->
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places&callback=initializeApp">
-    </script>
-
     <style>
         #map, #driverMap {
             height: 400px;
@@ -161,15 +156,101 @@
         </div>
     </div>
 
+    <!-- Tela de Suporte Admin -->
+    <div id="adminSupportScreen" class="hidden container mx-auto mt-10 p-4">
+        <div class="flex h-[calc(100vh-200px)] bg-white rounded-lg shadow-lg">
+            <!-- Lista de conversas -->
+            <div class="w-1/3 border-r">
+                <div class="p-4 border-b">
+                    <h2 class="text-lg font-semibold">Conversas de Suporte</h2>
+                </div>
+                <div id="supportConversations" class="overflow-y-auto h-full">
+                    <!-- Conversas serão inseridas aqui -->
+                </div>
+            </div>
+
+            <!-- Área de chat -->
+            <div class="flex-1 flex flex-col">
+                <div id="chatArea" class="flex-1 flex items-center justify-center text-gray-500">
+                    Selecione uma conversa para começar
+                </div>
+
+                <div id="activeChatArea" class="flex-1 flex flex-col hidden">
+                    <!-- Cabeçalho do chat -->
+                    <div class="p-4 border-b bg-gray-50">
+                        <div id="chatUserName" class="font-medium"></div>
+                        <div id="chatUserRole" class="text-sm text-gray-500"></div>
+                    </div>
+
+                    <!-- Mensagens -->
+                    <div id="messagesArea" class="flex-1 overflow-y-auto p-4 space-y-4">
+                        <!-- Mensagens serão inseridas aqui -->
+                    </div>
+
+                    <!-- Formulário de mensagem -->
+                    <form id="messageForm" class="p-4 border-t bg-gray-50">
+                        <div class="flex space-x-2">
+                            <input
+                                type="text"
+                                id="messageInput"
+                                placeholder="Digite sua mensagem..."
+                                class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <button
+                                type="submit"
+                                class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                            >
+                                Enviar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela do Dashboard Admin -->
+    <div id="adminDashboard" class="hidden container mx-auto mt-10 p-4">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold">Dashboard Administrativo</h1>
+            <div class="flex space-x-4">
+                <button onclick="showAdminDashboard()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    Dashboard
+                </button>
+                <button onclick="showAdminSupportScreen()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    Suporte
+                </button>
+            </div>
+        </div>
+
+        <!-- Conteúdo do dashboard será adicionado aqui -->
+        <div id="adminDashboardContent" class="space-y-8">
+            <!-- Os dados serão carregados dinamicamente -->
+        </div>
+    </div>
+
     <script>
+        // Declare todas as variáveis e funções primeiro
         let map, originMarker, destinationMarker, directionsRenderer;
         let currentUser = null;
         let currentRide = null;
         let originAutocomplete, destinationAutocomplete;
         let driverMap, driverDirectionsRenderer;
         let availableRidesInterval;
+        let selectedUserId = null;
+        let supportPollingInterval = null;
 
-        // Adicione estas funções no início do script:
+        // Função que será chamada quando o Google Maps carregar
+        function initGoogleMaps() {
+            initMap();
+            initAutocomplete();
+            
+            // Verifica autenticação e configura listeners
+            checkAuth();
+            setupEventListeners();
+            initializeRidePolling();
+        }
+
         function saveAppState() {
             const state = {
                 currentUser: currentUser,
@@ -189,18 +270,6 @@
                 return state;
             }
             return null;
-        }
-
-        // Nova função de inicialização
-        function initializeApp() {
-            // Inicializa os mapas quando o Google Maps estiver carregado
-            initMap();
-            initAutocomplete();
-            
-            // Verifica autenticação e configura listeners
-            checkAuth();
-            setupEventListeners();
-            initializeRidePolling();
         }
 
         function initMap() {
@@ -348,15 +417,26 @@
                     localStorage.setItem('token', data.token);
                     currentUser = data.user;
                     
-                    // Verifica se é motorista ou passageiro
-                    if (email.includes('driver')) {
+                    // Atualiza o nome do usuário na interface
+                    document.getElementById('userName').textContent = currentUser.email;
+                    document.getElementById('userInfo').classList.remove('hidden');
+                    document.getElementById('loginScreen').classList.add('hidden');
+
+                    // Verifica o tipo de usuário pelo email
+                    if (email === 'admin@example.com') {
+                        currentUser.role = 'admin';
+                        showAdminDashboard();
+                    } else if (email.includes('driver@')) {
+                        currentUser.role = 'driver';
                         showDriverScreen();
                     } else {
+                        currentUser.role = 'passenger';
                         showMainScreen();
                     }
                     
-                    // Salva o estado após login
                     saveAppState();
+                } else {
+                    alert('Email ou senha inválidos');
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -478,11 +558,28 @@
         }
 
         function logout() {
+            // Limpa dados do localStorage
             localStorage.removeItem('token');
             localStorage.removeItem('appState');
+            
+            // Limpa variáveis globais
             currentUser = null;
             currentRide = null;
-            showLoginScreen();
+            selectedUserId = null;
+            
+            // Para todos os pollings
+            if (availableRidesInterval) clearInterval(availableRidesInterval);
+            if (supportPollingInterval) clearInterval(supportPollingInterval);
+            
+            // Esconde todas as telas
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('driverScreen').classList.add('hidden');
+            document.getElementById('adminSupportScreen').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+            
+            // Mostra tela de login
+            document.getElementById('loginScreen').classList.remove('hidden');
         }
 
         async function checkAuth() {
@@ -493,14 +590,16 @@
             }
 
             const state = loadAppState();
-            if (state) {
-                // Restaura o estado do usuário
-                document.getElementById('userName').textContent = state.currentUser.email;
+            if (state && state.currentUser) {
+                currentUser = state.currentUser;
+                document.getElementById('userName').textContent = currentUser.email;
                 document.getElementById('userInfo').classList.remove('hidden');
                 document.getElementById('loginScreen').classList.add('hidden');
 
-                // Restaura a tela correta
-                if (state.isDriver) {
+                // Restaura a tela correta baseado no tipo de usuário
+                if (currentUser.role === 'admin') {
+                    showAdminDashboard();
+                } else if (currentUser.role === 'driver') {
                     showDriverScreen();
                     if (currentRide) {
                         showCurrentRide(currentRide);
@@ -510,42 +609,7 @@
                 } else {
                     showMainScreen();
                     if (currentRide) {
-                        try {
-                            // Restaura o estado da corrida para passageiro
-                            const response = await fetch(`/rides/${currentRide._id}/status`, {
-                                headers: {
-                                    'Authorization': `Bearer ${token}`
-                                }
-                            });
-                            
-                            if (!response.ok) {
-                                throw new Error('Falha ao recuperar status da corrida');
-                            }
-
-                            const data = await response.json();
-                            if (data.success) {
-                                // Mostra o status da corrida
-                                document.getElementById('rideStatus').classList.remove('hidden');
-                                updateRideStatus(data.ride);
-                                
-                                // Atualiza o mapa com a rota
-                                const origin = document.getElementById('origin');
-                                const destination = document.getElementById('destination');
-                                origin.value = data.ride.origin;
-                                destination.value = data.ride.destination;
-                                
-                                // Recalcula e mostra a rota no mapa
-                                calculateRoute(data.ride.origin, data.ride.destination);
-                                
-                                // Inicia o polling de status
-                                initializeRidePolling();
-                            }
-                        } catch (error) {
-                            console.error('Erro ao recuperar corrida:', error);
-                            // Se houver erro, limpa o estado da corrida
-                            currentRide = null;
-                            saveAppState();
-                        }
+                        updateRideStatus(currentRide);
                     }
                 }
             } else {
@@ -1028,6 +1092,319 @@
 
         // Adicione event listeners para salvar estado em mudanças importantes:
         window.addEventListener('beforeunload', saveAppState);
+
+        // Carregue o Google Maps de forma assíncrona no final do body
+        window.addEventListener('DOMContentLoaded', () => {
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places&callback=initGoogleMaps`;
+            script.async = true;
+            script.defer = true;
+            document.body.appendChild(script);
+        });
+
+        // Função para mostrar a tela de suporte admin
+        function showAdminSupportScreen() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('driverScreen').classList.add('hidden');
+            document.getElementById('adminSupportScreen').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            
+            loadSupportConversations();
+            startSupportPolling();
+        }
+
+        // Carregar conversas de suporte
+        async function loadSupportConversations() {
+            try {
+                const response = await fetch('/messages/support/conversations', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const data = await response.json();
+                updateConversationsList(data);
+            } catch (error) {
+                console.error('Erro ao carregar conversas:', error);
+            }
+        }
+
+        // Atualizar lista de conversas
+        function updateConversationsList(conversations) {
+            const container = document.getElementById('supportConversations');
+            container.innerHTML = '';
+
+            conversations.forEach(conv => {
+                const conversationEl = document.createElement('button');
+                conversationEl.className = `w-full p-4 text-left hover:bg-gray-50 border-b relative ${
+                    selectedUserId === conv.userId ? 'bg-blue-50' : ''
+                }`;
+                
+                conversationEl.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-medium flex items-center">
+                                ${conv.userName}
+                                <span class="ml-2 text-xs px-2 py-1 bg-gray-200 rounded-full">
+                                    ${conv.userRole === 'driver' ? 'Motorista' : 'Passageiro'}
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-500 truncate mt-1">
+                                ${conv.lastMessage}
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            ${formatLastMessageTime(conv.lastMessageAt)}
+                        </div>
+                    </div>
+                    ${conv.unreadCount > 0 ? `
+                        <span class="absolute top-4 right-4 bg-blue-500 text-white text-xs rounded-full px-2 py-1">
+                            ${conv.unreadCount}
+                        </span>
+                    ` : ''}
+                `;
+
+                conversationEl.onclick = () => selectConversation(conv.userId);
+                container.appendChild(conversationEl);
+            });
+        }
+
+        // Selecionar uma conversa
+        async function selectConversation(userId) {
+            selectedUserId = userId;
+            document.getElementById('chatArea').classList.add('hidden');
+            document.getElementById('activeChatArea').classList.remove('hidden');
+            
+            await loadUserMessages(userId);
+            startMessagePolling(userId);
+        }
+
+        // Carregar mensagens do usuário
+        async function loadUserMessages(userId) {
+            try {
+                const response = await fetch(`/messages/support/user/${userId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                const messages = await response.json();
+                updateMessagesList(messages);
+            } catch (error) {
+                console.error('Erro ao carregar mensagens:', error);
+            }
+        }
+
+        // Atualizar lista de mensagens
+        function updateMessagesList(messages) {
+            const container = document.getElementById('messagesArea');
+            container.innerHTML = '';
+
+            messages.forEach(message => {
+                const messageEl = document.createElement('div');
+                const isAdmin = message.sender._id === currentUser.id;
+                
+                messageEl.className = `flex ${isAdmin ? 'justify-end' : 'justify-start'}`;
+                messageEl.innerHTML = `
+                    <div class="max-w-[70%] rounded-lg p-3 ${
+                        isAdmin ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
+                    }">
+                        <p class="text-sm font-medium mb-1">${message.sender.name}</p>
+                        <p class="text-sm">${message.content}</p>
+                        <span class="text-xs opacity-75 mt-1 block">
+                            ${formatLastMessageTime(message.createdAt)}
+                        </span>
+                    </div>
+                `;
+                
+                container.appendChild(messageEl);
+            });
+
+            // Rola para a última mensagem
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Iniciar polling de suporte
+        function startSupportPolling() {
+            if (supportPollingInterval) {
+                clearInterval(supportPollingInterval);
+            }
+            supportPollingInterval = setInterval(loadSupportConversations, 5000);
+        }
+
+        // Parar polling de suporte
+        function stopSupportPolling() {
+            if (supportPollingInterval) {
+                clearInterval(supportPollingInterval);
+                supportPollingInterval = null;
+            }
+        }
+
+        // Configurar formulário de mensagem
+        document.getElementById('messageForm').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!selectedUserId) return;
+
+            const input = document.getElementById('messageInput');
+            const content = input.value.trim();
+            if (!content) return;
+
+            try {
+                const response = await fetch('/messages/support/reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        userId: selectedUserId,
+                        content
+                    })
+                });
+
+                const message = await response.json();
+                updateMessagesList([...messages, message]);
+                input.value = '';
+            } catch (error) {
+                console.error('Erro ao enviar mensagem:', error);
+            }
+        };
+
+        // Adicione a função para mostrar o dashboard admin
+        function showAdminDashboard() {
+            // Esconde outras telas
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('driverScreen').classList.add('hidden');
+            document.getElementById('adminSupportScreen').classList.add('hidden');
+            
+            // Mostra o dashboard admin
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            
+            // Carrega dados iniciais do dashboard
+            loadAdminDashboardData();
+        }
+
+        // Adicione a função loadAdminDashboardData:
+        async function loadAdminDashboardData() {
+            try {
+                // Carrega estatísticas
+                const statsResponse = await fetch('/admin/stats', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const statsData = await statsResponse.json();
+
+                // Carrega motoristas pendentes
+                const driversResponse = await fetch('/admin/pending-drivers', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const driversData = await driversResponse.json();
+
+                // Atualiza o conteúdo do dashboard
+                const dashboardContent = document.getElementById('adminDashboardContent');
+                dashboardContent.innerHTML = `
+                    <!-- Estatísticas -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold text-gray-600">Motoristas Ativos</h3>
+                            <p class="text-3xl font-bold">${statsData.activeDrivers || 0}</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold text-gray-600">Motoristas Pendentes</h3>
+                            <p class="text-3xl font-bold">${statsData.pendingDrivers || 0}</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow">
+                            <h3 class="text-lg font-semibold text-gray-600">Total de Passageiros</h3>
+                            <p class="text-3xl font-bold">${statsData.totalPassengers || 0}</p>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Motoristas Pendentes -->
+                    <div class="bg-white p-6 rounded-lg shadow mt-6">
+                        <h3 class="text-xl font-semibold mb-4">Motoristas Pendentes</h3>
+                        ${driversData.length > 0 ? `
+                            <div class="divide-y">
+                                ${driversData.map(driver => `
+                                    <div class="py-4">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h4 class="font-medium">${driver.name}</h4>
+                                                <p class="text-sm text-gray-600">${driver.email}</p>
+                                                <p class="text-sm text-gray-600">Veículo: ${driver.vehicle?.model || 'N/A'}</p>
+                                            </div>
+                                            <div class="flex space-x-2">
+                                                <button onclick="approveDriver('${driver._id}')" 
+                                                    class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
+                                                    Aprovar
+                                                </button>
+                                                <button onclick="rejectDriver('${driver._id}')"
+                                                    class="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
+                                                    Rejeitar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p class="text-gray-500">Nenhum motorista pendente</p>'}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao carregar dados do dashboard:', error);
+                document.getElementById('adminDashboardContent').innerHTML = `
+                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                        Erro ao carregar dados do dashboard
+                    </div>
+                `;
+            }
+        }
+
+        // Adicione as funções de aprovação/rejeição de motoristas:
+        async function approveDriver(driverId) {
+            try {
+                const response = await fetch(`/admin/approve-driver/${driverId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    loadAdminDashboardData(); // Recarrega os dados
+                    alert('Motorista aprovado com sucesso!');
+                }
+            } catch (error) {
+                console.error('Erro ao aprovar motorista:', error);
+                alert('Erro ao aprovar motorista');
+            }
+        }
+
+        async function rejectDriver(driverId) {
+            if (!confirm('Tem certeza que deseja rejeitar este motorista?')) return;
+            
+            try {
+                const response = await fetch(`/admin/reject-driver/${driverId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    loadAdminDashboardData(); // Recarrega os dados
+                    alert('Motorista rejeitado com sucesso!');
+                }
+            } catch (error) {
+                console.error('Erro ao rejeitar motorista:', error);
+                alert('Erro ao rejeitar motorista');
+            }
+        }
     </script>
 </body>
 </html> 

@@ -67,12 +67,20 @@ router.get('/:rideId/status', authenticateToken, async (req, res) => {
       });
     }
 
+    // Verifica se o usuário é o passageiro ou motorista desta corrida
+    if (ride.passenger.id !== req.user.id && (!ride.driver || ride.driver.id !== req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
     res.json({
       success: true,
       ride
     });
   } catch (error) {
-    console.error('Erro ao buscar status:', error);
+    console.error('Erro ao buscar status da corrida:', error);
     res.status(500).json({
       success: false,
       message: 'Erro ao buscar status da corrida'

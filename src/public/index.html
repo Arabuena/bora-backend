@@ -169,6 +169,28 @@
         let driverMap, driverDirectionsRenderer;
         let availableRidesInterval;
 
+        // Adicione estas funções no início do script:
+        function saveAppState() {
+            const state = {
+                currentUser: currentUser,
+                currentRide: currentRide,
+                isDriver: currentUser?.email.includes('driver'),
+                lastScreen: document.getElementById('driverScreen').classList.contains('hidden') ? 'main' : 'driver'
+            };
+            localStorage.setItem('appState', JSON.stringify(state));
+        }
+
+        function loadAppState() {
+            const savedState = localStorage.getItem('appState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                currentUser = state.currentUser;
+                currentRide = state.currentRide;
+                return state;
+            }
+            return null;
+        }
+
         // Nova função de inicialização
         function initializeApp() {
             // Inicializa os mapas quando o Google Maps estiver carregado
@@ -332,6 +354,9 @@
                     } else {
                         showMainScreen();
                     }
+                    
+                    // Salva o estado após login
+                    saveAppState();
                 }
             } catch (error) {
                 console.error('Login error:', error);
@@ -454,40 +479,74 @@
 
         function logout() {
             localStorage.removeItem('token');
+            localStorage.removeItem('appState');
             currentUser = null;
-            document.getElementById('mainScreen').classList.add('hidden');
-            document.getElementById('userInfo').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
+            currentRide = null;
+            showLoginScreen();
         }
 
-        function checkAuth() {
+        async function checkAuth() {
             const token = localStorage.getItem('token');
-            if (token) {
-                // Verificar token e mostrar tela principal
-                verifyToken();
+            if (!token) {
+                showLoginScreen();
+                return;
             }
-        }
 
-        async function verifyToken() {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('/auth/verify', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+            const state = loadAppState();
+            if (state) {
+                // Restaura o estado do usuário
+                document.getElementById('userName').textContent = state.currentUser.email;
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('loginScreen').classList.add('hidden');
 
-                const data = await response.json();
-                if (data.success) {
-                    currentUser = data.user;
+                // Restaura a tela correta
+                if (state.isDriver) {
+                    showDriverScreen();
+                    if (currentRide) {
+                        showCurrentRide(currentRide);
+                    } else {
+                        startAvailableRidesPolling();
+                    }
+                } else {
                     showMainScreen();
+                    if (currentRide) {
+                        // Restaura o estado da corrida para passageiro
+                        const response = await fetch(`/rides/${currentRide._id}/status`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            updateRideStatus(data.ride);
+                        }
+                    }
                 }
-            } catch (error) {
-                console.error('Token verification error:', error);
-                logout();
+            } else {
+                showLoginScreen();
             }
         }
 
         async function initializeRidePolling() {
-            // Implemente a lógica para inicializar o polling de status da corrida
+            if (currentRide) {
+                setInterval(async () => {
+                    try {
+                        const response = await fetch(`/rides/${currentRide._id}/status`, {
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            }
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            currentRide = data.ride;
+                            updateRideStatus(data.ride);
+                        }
+                    } catch (error) {
+                        console.error('Erro ao atualizar status:', error);
+                    }
+                }, 5000); // Atualiza a cada 5 segundos
+            }
         }
 
         async function cancelRide() {
@@ -540,35 +599,86 @@
         }
 
         function updateRideStatus(ride) {
-            const statusUpdate = document.getElementById('statusUpdate');
+            const statusDiv = document.getElementById('rideStatus');
+            const rideInfo = document.getElementById('rideInfo');
+            statusDiv.classList.remove('hidden');
+
             let statusText = '';
             let statusClass = '';
+            let additionalInfo = '';
 
             switch (ride.status) {
                 case 'searching':
                     statusText = 'Procurando motorista...';
-                    statusClass = 'bg-yellow-50 text-yellow-700';
+                    statusClass = 'bg-yellow-100 text-yellow-800';
                     break;
                 case 'accepted':
-                    statusText = `Motorista a caminho: ${ride.driver.name} - ${ride.driver.car}`;
-                    statusClass = 'bg-blue-50 text-blue-700';
+                    statusText = 'Motorista a caminho';
+                    statusClass = 'bg-blue-100 text-blue-800';
+                    additionalInfo = `
+                        <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                            <h4 class="font-bold mb-2">Informações do Motorista</h4>
+                            <p><strong>Nome:</strong> ${ride.driver.name}</p>
+                            <p><strong>Veículo:</strong> ${ride.driver.car}</p>
+                        </div>
+                        <div id="driverLocationInfo" class="mt-4">
+                            <!-- Informações de localização do motorista serão atualizadas aqui -->
+                        </div>
+                    `;
                     break;
                 case 'in_progress':
                     statusText = 'Em viagem';
-                    statusClass = 'bg-green-50 text-green-700';
+                    statusClass = 'bg-green-100 text-green-800';
+                    additionalInfo = `
+                        <div class="mt-4 p-4 bg-green-50 rounded-lg">
+                            <h4 class="font-bold mb-2">Viagem em Andamento</h4>
+                            <p><strong>Motorista:</strong> ${ride.driver.name}</p>
+                            <p><strong>Início:</strong> ${new Date(ride.startTime).toLocaleTimeString()}</p>
+                        </div>
+                    `;
                     break;
                 case 'completed':
                     statusText = 'Viagem finalizada';
-                    statusClass = 'bg-green-50 text-green-700';
+                    statusClass = 'bg-green-100 text-green-800';
+                    const endTime = new Date(ride.endTime);
+                    const duration = Math.round((endTime - new Date(ride.startTime)) / 1000 / 60);
+                    additionalInfo = `
+                        <div class="mt-4 p-4 bg-green-50 rounded-lg">
+                            <h4 class="font-bold mb-2">Resumo da Viagem</h4>
+                            <p><strong>Duração:</strong> ${duration} minutos</p>
+                            <p><strong>Valor:</strong> R$ ${ride.actualPrice.toFixed(2)}</p>
+                            <button onclick="requestNewRide()" class="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                                Solicitar Nova Corrida
+                            </button>
+                        </div>
+                    `;
                     break;
                 case 'cancelled':
-                    statusText = 'Viagem cancelada';
-                    statusClass = 'bg-red-50 text-red-700';
+                    statusText = 'Corrida cancelada';
+                    statusClass = 'bg-red-100 text-red-800';
+                    additionalInfo = `
+                        <button onclick="requestNewRide()" class="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+                            Solicitar Nova Corrida
+                        </button>
+                    `;
                     break;
             }
 
-            statusUpdate.className = `p-4 rounded-lg ${statusClass}`;
-            statusUpdate.innerHTML = `<p>${statusText}</p>`;
+            rideInfo.innerHTML = `
+                <div class="p-4 ${statusClass} rounded-lg">
+                    <h4 class="font-bold">${statusText}</h4>
+                </div>
+                ${additionalInfo}
+            `;
+            currentRide = ride;
+            saveAppState();
+        }
+
+        // Adicione a função para solicitar nova corrida
+        function requestNewRide() {
+            document.getElementById('rideStatus').classList.add('hidden');
+            document.getElementById('rideForm').reset();
+            currentRide = null;
         }
 
         // Funções do Motorista
@@ -733,6 +843,8 @@
                 startBtn.classList.add('hidden');
                 finishBtn.classList.remove('hidden');
             }
+            currentRide = ride;
+            saveAppState();
         }
 
         async function startRide(rideId) {
@@ -877,6 +989,9 @@
                 }
             );
         }
+
+        // Adicione event listeners para salvar estado em mudanças importantes:
+        window.addEventListener('beforeunload', saveAppState);
     </script>
 </body>
 </html> 

@@ -510,15 +510,41 @@
                 } else {
                     showMainScreen();
                     if (currentRide) {
-                        // Restaura o estado da corrida para passageiro
-                        const response = await fetch(`/rides/${currentRide._id}/status`, {
-                            headers: {
-                                'Authorization': `Bearer ${token}`
+                        try {
+                            // Restaura o estado da corrida para passageiro
+                            const response = await fetch(`/rides/${currentRide._id}/status`, {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error('Falha ao recuperar status da corrida');
                             }
-                        });
-                        const data = await response.json();
-                        if (data.success) {
-                            updateRideStatus(data.ride);
+
+                            const data = await response.json();
+                            if (data.success) {
+                                // Mostra o status da corrida
+                                document.getElementById('rideStatus').classList.remove('hidden');
+                                updateRideStatus(data.ride);
+                                
+                                // Atualiza o mapa com a rota
+                                const origin = document.getElementById('origin');
+                                const destination = document.getElementById('destination');
+                                origin.value = data.ride.origin;
+                                destination.value = data.ride.destination;
+                                
+                                // Recalcula e mostra a rota no mapa
+                                calculateRoute(data.ride.origin, data.ride.destination);
+                                
+                                // Inicia o polling de status
+                                initializeRidePolling();
+                            }
+                        } catch (error) {
+                            console.error('Erro ao recuperar corrida:', error);
+                            // Se houver erro, limpa o estado da corrida
+                            currentRide = null;
+                            saveAppState();
                         }
                     }
                 }
@@ -601,7 +627,10 @@
         function updateRideStatus(ride) {
             const statusDiv = document.getElementById('rideStatus');
             const rideInfo = document.getElementById('rideInfo');
+            const rideForm = document.getElementById('rideForm').closest('.bg-white'); // Pega o container do formulário
+            
             statusDiv.classList.remove('hidden');
+            rideForm.classList.add('hidden'); // Esconde o formulário durante corrida ativa
 
             let statusText = '';
             let statusClass = '';
@@ -672,13 +701,20 @@
             `;
             currentRide = ride;
             saveAppState();
+
+            // Se a corrida for finalizada ou cancelada, mostra o formulário novamente
+            if (ride.status === 'completed' || ride.status === 'cancelled') {
+                rideForm.classList.remove('hidden');
+            }
         }
 
-        // Adicione a função para solicitar nova corrida
+        // Adicione esta função para limpar o estado da corrida quando solicitar nova corrida
         function requestNewRide() {
             document.getElementById('rideStatus').classList.add('hidden');
+            document.getElementById('rideForm').closest('.bg-white').classList.remove('hidden');
             document.getElementById('rideForm').reset();
             currentRide = null;
+            saveAppState();
         }
 
         // Funções do Motorista

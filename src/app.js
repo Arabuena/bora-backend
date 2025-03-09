@@ -39,7 +39,16 @@ app.use('/rides', ridesRouter);
 app.use('/admin', adminRouter);
 app.use('/messages', messagesRouter);
 
-// Servir arquivos estáticos depois das rotas da API
+// Modifique a configuração de arquivos estáticos
+app.use('/css', express.static(path.join(__dirname, 'public/css'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    }
+  }
+}));
+
+// Mantenha a configuração geral de arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Rota raiz serve a página de teste

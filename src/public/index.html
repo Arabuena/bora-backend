@@ -627,6 +627,7 @@
 
             // Limpa dados do usuário
             localStorage.removeItem('token');
+            localStorage.removeItem('appState');
             currentUser = null;
             
             // Reseta variáveis
@@ -1500,6 +1501,22 @@
                 return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
             return messageDate.toLocaleDateString();
+        }
+
+        function showLoginScreen() {
+            // Esconde todas as telas
+            document.getElementById('mainScreen').classList.add('hidden');
+            document.getElementById('driverScreen').classList.add('hidden');
+            document.getElementById('adminSupportScreen').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('userInfo').classList.add('hidden');
+            
+            // Limpa campos do formulário
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+            
+            // Mostra tela de login
+            document.getElementById('loginScreen').classList.remove('hidden');
         }
     </script>
 </body>

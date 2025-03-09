@@ -240,6 +240,10 @@
         let selectedUserId = null;
         let googleMapsLoaded = false;
 
+        // Variáveis globais de polling
+        let supportPollingInterval = null;
+        let messagePollingInterval = null;
+
         // Função para carregar o Google Maps uma única vez
         function loadGoogleMapsAsync() {
             if (googleMapsLoaded) {
@@ -616,27 +620,21 @@
         }
 
         function logout() {
-            // Limpa dados do localStorage
-            localStorage.removeItem('token');
-            localStorage.removeItem('appState');
-            
-            // Limpa variáveis globais
-            currentUser = null;
-            currentRide = null;
-            selectedUserId = null;
-            
-            // Para todos os pollings
+            // Limpa todos os intervalos
+            stopSupportPolling();
+            stopMessagePolling();
             if (availableRidesInterval) clearInterval(availableRidesInterval);
+
+            // Limpa dados do usuário
+            localStorage.removeItem('token');
+            currentUser = null;
             
-            // Esconde todas as telas
-            document.getElementById('mainScreen').classList.add('hidden');
-            document.getElementById('driverScreen').classList.add('hidden');
-            document.getElementById('adminSupportScreen').classList.add('hidden');
-            document.getElementById('adminDashboard').classList.add('hidden');
-            document.getElementById('userInfo').classList.add('hidden');
-            
+            // Reseta variáveis
+            selectedUserId = null;
+            currentRide = null;
+
             // Mostra tela de login
-            document.getElementById('loginScreen').classList.remove('hidden');
+            showLoginScreen();
         }
 
         async function checkAuth() {
@@ -1152,12 +1150,18 @@
 
         // Função para mostrar a tela de suporte admin
         function showAdminSupportScreen() {
+            // Esconde outras telas
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('mainScreen').classList.add('hidden');
             document.getElementById('driverScreen').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
             document.getElementById('adminSupportScreen').classList.remove('hidden');
             document.getElementById('userInfo').classList.remove('hidden');
             
+            // Para polling anterior se existir
+            stopMessagePolling();
+            
+            // Carrega conversas e inicia polling
             loadSupportConversations();
             startSupportPolling();
         }
@@ -1220,12 +1224,21 @@
 
         // Selecionar uma conversa
         async function selectConversation(userId) {
+            // Para polling anterior se existir
+            stopMessagePolling();
+            
             selectedUserId = userId;
             document.getElementById('chatArea').classList.add('hidden');
             document.getElementById('activeChatArea').classList.remove('hidden');
             
             await loadUserMessages(userId);
             startMessagePolling(userId);
+
+            // Atualiza UI para mostrar conversa selecionada
+            const conversations = document.querySelectorAll('#supportConversations button');
+            conversations.forEach(conv => {
+                conv.classList.toggle('bg-blue-50', conv.dataset.userId === userId);
+            });
         }
 
         // Carregar mensagens do usuário
@@ -1275,10 +1288,13 @@
 
         // Iniciar polling de suporte
         function startSupportPolling() {
+            // Limpa intervalo existente se houver
             if (supportPollingInterval) {
                 clearInterval(supportPollingInterval);
             }
-            supportPollingInterval = setInterval(loadSupportConversations, 5000);
+
+            // Atualiza a cada 10 segundos
+            supportPollingInterval = setInterval(loadSupportConversations, 10000);
         }
 
         // Parar polling de suporte
@@ -1286,6 +1302,25 @@
             if (supportPollingInterval) {
                 clearInterval(supportPollingInterval);
                 supportPollingInterval = null;
+            }
+        }
+
+        // Função para iniciar polling de mensagens
+        function startMessagePolling(userId) {
+            // Limpa intervalo existente se houver
+            if (messagePollingInterval) {
+                clearInterval(messagePollingInterval);
+            }
+
+            // Atualiza a cada 5 segundos
+            messagePollingInterval = setInterval(() => loadUserMessages(userId), 5000);
+        }
+
+        // Função para parar polling de mensagens
+        function stopMessagePolling() {
+            if (messagePollingInterval) {
+                clearInterval(messagePollingInterval);
+                messagePollingInterval = null;
             }
         }
 

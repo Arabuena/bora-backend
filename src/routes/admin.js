@@ -96,4 +96,64 @@ router.post('/reject-driver/:id', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Listar todas as corridas
+router.get('/rides', authenticateAdmin, async (req, res) => {
+  try {
+    const rides = await Ride.find()
+      .sort({ createdAt: -1 })
+      .limit(100); // Limita a 100 corridas mais recentes
+
+    res.json(rides);
+  } catch (error) {
+    console.error('Erro ao listar corridas:', error);
+    res.status(500).json({ message: 'Erro ao listar corridas' });
+  }
+});
+
+// Cancelar uma corrida
+router.post('/rides/:rideId/cancel', authenticateAdmin, async (req, res) => {
+  try {
+    const ride = await Ride.findByIdAndUpdate(
+      req.params.rideId,
+      { 
+        status: 'cancelled',
+        cancelledBy: 'admin',
+        cancelReason: req.body.reason || 'Cancelado pelo administrador',
+        cancelledAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!ride) {
+      return res.status(404).json({ message: 'Corrida não encontrada' });
+    }
+
+    res.json({ success: true, ride });
+  } catch (error) {
+    console.error('Erro ao cancelar corrida:', error);
+    res.status(500).json({ message: 'Erro ao cancelar corrida' });
+  }
+});
+
+// Obter estatísticas das corridas
+router.get('/rides/stats', authenticateAdmin, async (req, res) => {
+  try {
+    const stats = await Ride.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalValue: { $sum: '$estimatedPrice' },
+          avgDuration: { $avg: '$duration' }
+        }
+      }
+    ]);
+
+    res.json(stats);
+  } catch (error) {
+    console.error('Erro ao buscar estatísticas:', error);
+    res.status(500).json({ message: 'Erro ao buscar estatísticas' });
+  }
+});
+
 module.exports = router; 

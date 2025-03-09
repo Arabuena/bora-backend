@@ -225,7 +225,48 @@
 
         <!-- Conteúdo do dashboard será adicionado aqui -->
         <div id="adminDashboardContent" class="space-y-8">
-            <!-- Os dados serão carregados dinamicamente -->
+            <!-- Adicione esta seção dentro da div id="adminDashboard" -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- Estatísticas de Corridas -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Estatísticas de Corridas</h3>
+                    <div id="ridesStats" class="grid grid-cols-2 gap-4">
+                        <!-- Estatísticas serão inseridas aqui -->
+                    </div>
+                </div>
+
+                <!-- Gráfico de Status -->
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Status das Corridas</h3>
+                    <div id="ridesChart" class="h-64">
+                        <!-- Gráfico será inserido aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Corridas -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="p-4 border-b">
+                    <h3 class="text-lg font-semibold">Corridas Recentes</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Passageiro</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motorista</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ridesList" class="bg-white divide-y divide-gray-200">
+                            <!-- Corridas serão inseridas aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1357,18 +1398,15 @@
 
         // Adicione a função para mostrar o dashboard admin
         function showAdminDashboard() {
-            // Esconde outras telas
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('mainScreen').classList.add('hidden');
             document.getElementById('driverScreen').classList.add('hidden');
             document.getElementById('adminSupportScreen').classList.add('hidden');
-            
-            // Mostra o dashboard admin
             document.getElementById('adminDashboard').classList.remove('hidden');
             document.getElementById('userInfo').classList.remove('hidden');
             
-            // Carrega dados iniciais do dashboard
             loadAdminDashboardData();
+            loadRidesData();
         }
 
         // Adicione a função loadAdminDashboardData:
@@ -1517,6 +1555,98 @@
             
             // Mostra tela de login
             document.getElementById('loginScreen').classList.remove('hidden');
+        }
+
+        // Função para carregar dados das corridas
+        async function loadRidesData() {
+            try {
+                const [rides, stats] = await Promise.all([
+                    fetch('/admin/rides', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    }).then(res => res.json()),
+                    fetch('/admin/rides/stats', {
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    }).then(res => res.json())
+                ]);
+
+                updateRidesTable(rides);
+                updateRidesStats(stats);
+            } catch (error) {
+                console.error('Erro ao carregar dados das corridas:', error);
+            }
+        }
+
+        // Função para atualizar a tabela de corridas
+        function updateRidesTable(rides) {
+            const tbody = document.getElementById('ridesList');
+            tbody.innerHTML = rides.map(ride => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${ride._id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${ride.passenger.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${ride.driver?.name || 'Não atribuído'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${getStatusColor(ride.status)}">
+                            ${getStatusText(ride.status)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">R$ ${ride.estimatedPrice.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${ride.status !== 'cancelled' ? `
+                            <button onclick="cancelRide('${ride._id}')" 
+                                class="text-red-600 hover:text-red-900">
+                                Cancelar
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Função para atualizar estatísticas
+        function updateRidesStats(stats) {
+            const statsContainer = document.getElementById('ridesStats');
+            statsContainer.innerHTML = `
+                <div class="bg-blue-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-blue-700">${stats.total || 0}</div>
+                    <div class="text-sm text-blue-600">Total de Corridas</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-green-700">R$ ${(stats.totalValue || 0).toFixed(2)}</div>
+                    <div class="text-sm text-green-600">Valor Total</div>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-yellow-700">${stats.active || 0}</div>
+                    <div class="text-sm text-yellow-600">Corridas Ativas</div>
+                </div>
+                <div class="bg-purple-50 p-4 rounded">
+                    <div class="text-2xl font-bold text-purple-700">${stats.completed || 0}</div>
+                    <div class="text-sm text-purple-600">Corridas Concluídas</div>
+                </div>
+            `;
+        }
+
+        // Funções auxiliares
+        function getStatusColor(status) {
+            const colors = {
+                'searching': 'bg-yellow-100 text-yellow-800',
+                'accepted': 'bg-blue-100 text-blue-800',
+                'in_progress': 'bg-green-100 text-green-800',
+                'completed': 'bg-purple-100 text-purple-800',
+                'cancelled': 'bg-red-100 text-red-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'searching': 'Buscando',
+                'accepted': 'Aceita',
+                'in_progress': 'Em Andamento',
+                'completed': 'Concluída',
+                'cancelled': 'Cancelada'
+            };
+            return texts[status] || status;
         }
     </script>
 </body>

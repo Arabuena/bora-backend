@@ -115,4 +115,130 @@ router.post('/:rideId/cancel', authenticateToken, async (req, res) => {
   }
 });
 
+// Listar corridas disponíveis para motoristas
+router.get('/available', authenticateToken, async (req, res) => {
+  try {
+    // Busca todas as corridas com status 'searching'
+    const rides = await Ride.find({ 
+      status: 'searching',
+      // Não mostrar corridas antigas (mais de 30 minutos)
+      createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) }
+    }).sort({ createdAt: -1 });
+
+    console.log('Corridas disponíveis:', rides.length);
+
+    res.json({
+      success: true,
+      rides
+    });
+  } catch (error) {
+    console.error('Erro ao buscar corridas disponíveis:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar corridas disponíveis'
+    });
+  }
+});
+
+// Aceitar uma corrida
+router.post('/:rideId/accept', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+    
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    if (ride.status !== 'searching') {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta corrida não está mais disponível'
+      });
+    }
+
+    // Atualiza o status e adiciona informações do motorista
+    ride.status = 'accepted';
+    ride.driver = {
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name || 'Motorista',
+      car: req.user.car || 'Veículo não especificado'
+    };
+
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao aceitar corrida:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao aceitar corrida'
+    });
+  }
+});
+
+// Iniciar uma corrida
+router.post('/:rideId/start', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+    
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    ride.status = 'in_progress';
+    ride.startTime = new Date();
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao iniciar corrida:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao iniciar corrida'
+    });
+  }
+});
+
+// Finalizar uma corrida
+router.post('/:rideId/finish', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+    
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    ride.status = 'completed';
+    ride.endTime = new Date();
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao finalizar corrida:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao finalizar corrida'
+    });
+  }
+});
+
 module.exports = router; 

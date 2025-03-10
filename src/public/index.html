@@ -215,15 +215,18 @@
             <h1 class="text-3xl font-bold">Dashboard Administrativo</h1>
             <div class="flex space-x-4">
                 <button onclick="showAdminDashboard()" 
-                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    data-screen="dashboard"
+                    class="nav-btn px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
                     Dashboard
                 </button>
                 <button onclick="showRidesManagement()" 
-                    class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    data-screen="rides"
+                    class="nav-btn px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
                     Gerenciar Corridas
                 </button>
                 <button onclick="showAdminSupportScreen()" 
-                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    data-screen="support"
+                    class="nav-btn px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
                     Suporte
                 </button>
             </div>
@@ -1775,6 +1778,10 @@
             document.getElementById('adminSupportScreen').classList.add('hidden');
             document.getElementById('ridesManagement').classList.remove('hidden');
             
+            // Atualiza cores dos botões
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-indigo-700'));
+            document.querySelector('[data-screen="rides"]').classList.add('bg-indigo-700');
+            
             // Carrega os dados
             loadDetailedRidesData();
         }
@@ -1835,19 +1842,26 @@
 
         // Função para filtrar corridas
         function filterRides() {
-            const status = document.getElementById('statusFilter').value;
+            const status = document.getElementById('statusFilter').value.toLowerCase();
             const date = document.getElementById('dateFilter').value;
             const search = document.getElementById('searchFilter').value.toLowerCase();
 
             const rows = document.getElementById('ridesListDetailed').getElementsByTagName('tr');
             
             Array.from(rows).forEach(row => {
-                const statusMatch = !status || row.querySelector('span').textContent.includes(status);
-                const dateMatch = !date || row.cells[1].textContent.includes(date);
-                const searchMatch = !search || 
-                    row.cells[0].textContent.toLowerCase().includes(search) || // ID
-                    row.cells[2].textContent.toLowerCase().includes(search) || // Passageiro
-                    row.cells[3].textContent.toLowerCase().includes(search);   // Motorista
+                if (!row.cells || row.cells.length === 0) return; // Ignora linhas inválidas
+
+                const statusCell = row.querySelector('span')?.textContent.toLowerCase() || '';
+                const dateCell = row.cells[1]?.textContent || '';
+                const searchFields = [
+                    row.cells[0]?.textContent || '', // ID
+                    row.cells[2]?.textContent || '', // Passageiro
+                    row.cells[3]?.textContent || ''  // Motorista
+                ].map(text => text.toLowerCase());
+
+                const statusMatch = !status || statusCell.includes(status);
+                const dateMatch = !date || dateCell.includes(date);
+                const searchMatch = !search || searchFields.some(field => field.includes(search));
 
                 row.style.display = statusMatch && dateMatch && searchMatch ? '' : 'none';
             });
@@ -1856,28 +1870,95 @@
         // Função para imprimir relatório
         function printRidesReport() {
             const printWindow = window.open('', '_blank');
-            const table = document.getElementById('ridesListDetailed').cloneNode(true);
+            const filteredRows = Array.from(document.getElementById('ridesListDetailed').getElementsByTagName('tr'))
+                .filter(row => row.style.display !== 'none');
             
+            const styles = `
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; }
+                    th { background-color: #f8f9fa; font-weight: bold; }
+                    .report-header { margin-bottom: 20px; }
+                    .report-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                    .report-info { color: #666; }
+                    .status-badge {
+                        padding: 4px 8px;
+                        border-radius: 12px;
+                        font-size: 12px;
+                        font-weight: 600;
+                    }
+                    .status-searching { background-color: #fef3c7; color: #92400e; }
+                    .status-accepted { background-color: #dbeafe; color: #1e40af; }
+                    .status-in_progress { background-color: #d1fae5; color: #065f46; }
+                    .status-completed { background-color: #e0e7ff; color: #3730a3; }
+                    .status-cancelled { background-color: #fee2e2; color: #991b1b; }
+                    @media print {
+                        .no-print { display: none; }
+                        table { page-break-inside: auto; }
+                        tr { page-break-inside: avoid; page-break-after: auto; }
+                    }
+                </style>
+            `;
+
+            const currentFilters = {
+                status: document.getElementById('statusFilter').value,
+                date: document.getElementById('dateFilter').value,
+                search: document.getElementById('searchFilter').value
+            };
+
             printWindow.document.write(`
                 <html>
                     <head>
-                        <title>Relatório de Corridas</title>
-                        <style>
-                            table { border-collapse: collapse; width: 100%; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                            th { background-color: #f8f9fa; }
-                        </style>
+                        <title>Relatório de Corridas - Bora</title>
+                        ${styles}
                     </head>
                     <body>
-                        <h1>Relatório de Corridas</h1>
-                        <p>Data: ${new Date().toLocaleDateString()}</p>
-                        <table>${table.outerHTML}</table>
+                        <div class="report-header">
+                            <div class="report-title">Relatório de Corridas - Bora</div>
+                            <div class="report-info">
+                                <p>Data de Geração: ${new Date().toLocaleString()}</p>
+                                ${currentFilters.status ? `<p>Filtro de Status: ${currentFilters.status}</p>` : ''}
+                                ${currentFilters.date ? `<p>Filtro de Data: ${currentFilters.date}</p>` : ''}
+                                ${currentFilters.search ? `<p>Busca: ${currentFilters.search}</p>` : ''}
+                                <p>Total de Registros: ${filteredRows.length}</p>
+                            </div>
+                        </div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Passageiro</th>
+                                    <th>Motorista</th>
+                                    <th>Origem</th>
+                                    <th>Destino</th>
+                                    <th>Status</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filteredRows.map(row => {
+                                    const cells = Array.from(row.cells);
+                                    return `
+                                        <tr>
+                                            <td>${cells[1]?.textContent || ''}</td>
+                                            <td>${cells[2]?.textContent || ''}</td>
+                                            <td>${cells[3]?.textContent || ''}</td>
+                                            <td>${cells[4]?.textContent || ''}</td>
+                                            <td>${cells[5]?.textContent || ''}</td>
+                                            <td>${cells[6]?.innerHTML || ''}</td>
+                                            <td>${cells[7]?.textContent || ''}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
                     </body>
                 </html>
             `);
-            
+
             printWindow.document.close();
-            printWindow.print();
+            setTimeout(() => printWindow.print(), 500);
         }
 
         // Função para ver detalhes da corrida

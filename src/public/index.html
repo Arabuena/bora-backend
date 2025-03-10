@@ -1966,6 +1966,133 @@
             // Implementar modal ou navegação para detalhes da corrida
             alert('Funcionalidade em desenvolvimento');
         }
+
+        // Modifique a função que solicita a corrida
+        async function requestRide(event) {
+            event.preventDefault();
+            
+            try {
+                const origin = document.getElementById('origin').value;
+                const destination = document.getElementById('destination').value;
+                
+                // Verifica se origem e destino foram preenchidos
+                if (!origin || !destination) {
+                    alert('Por favor, preencha origem e destino');
+                    return;
+                }
+
+                const response = await fetch('/rides/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        origin,
+                        destination,
+                        distance: calculateDistance(), // Implemente esta função
+                        estimatedPrice: calculatePrice(), // Implemente esta função
+                        estimatedTime: calculateTime() // Implemente esta função
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Guarda o ID da corrida no localStorage
+                    localStorage.setItem('currentRideId', data.ride._id);
+                    
+                    // Inicia o monitoramento do status
+                    startRideStatusMonitoring(data.ride._id);
+                    
+                    // Atualiza a interface
+                    updateRideStatus(data.ride);
+                } else {
+                    throw new Error(data.message || 'Erro ao solicitar corrida');
+                }
+            } catch (error) {
+                console.error('Erro ao solicitar corrida:', error);
+                alert('Erro ao solicitar corrida');
+            }
+        }
+
+        // Função para monitorar o status da corrida
+        function startRideStatusMonitoring(rideId) {
+            if (!rideId) {
+                console.error('ID da corrida não fornecido');
+                return;
+            }
+
+            // Limpa qualquer monitoramento anterior
+            if (window.statusMonitorInterval) {
+                clearInterval(window.statusMonitorInterval);
+            }
+
+            // Inicia novo monitoramento
+            window.statusMonitorInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/rides/${rideId}/status`, {
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        }
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        updateRideStatus(data.ride);
+                        
+                        // Para o monitoramento se a corrida foi finalizada ou cancelada
+                        if (['completed', 'cancelled'].includes(data.ride.status)) {
+                            clearInterval(window.statusMonitorInterval);
+                        }
+                    } else {
+                        console.error('Erro ao buscar status:', data.message);
+                    }
+                } catch (error) {
+                    console.error('Erro ao monitorar status:', error);
+                }
+            }, 5000); // Atualiza a cada 5 segundos
+        }
+
+        // Função para atualizar a interface com o status da corrida
+        function updateRideStatus(ride) {
+            const statusDiv = document.getElementById('rideStatus');
+            if (!statusDiv) return;
+
+            let statusText = '';
+            let actionButtons = '';
+
+            switch (ride.status) {
+                case 'searching':
+                    statusText = 'Procurando motorista...';
+                    actionButtons = `
+                        <button onclick="cancelRide('${ride._id}')" class="px-4 py-2 bg-red-500 text-white rounded">
+                            Cancelar corrida
+                        </button>
+                    `;
+                    break;
+                case 'accepted':
+                    statusText = `Motorista a caminho: ${ride.driver.name} - ${ride.driver.car} (${ride.driver.plate})`;
+                    actionButtons = `
+                        <button onclick="cancelRide('${ride._id}')" class="px-4 py-2 bg-red-500 text-white rounded">
+                            Cancelar corrida
+                        </button>
+                    `;
+                    break;
+                // Adicione outros casos conforme necessário
+            }
+
+            statusDiv.innerHTML = `
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Status da Corrida</h3>
+                    <p class="mb-4">${statusText}</p>
+                    <div class="flex space-x-4">
+                        ${actionButtons}
+                    </div>
+                </div>
+            `;
+        }
     </script>
 </body>
 </html> 

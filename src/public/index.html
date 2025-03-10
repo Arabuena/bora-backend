@@ -5,12 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bora - App de Corridas</title>
     
-    <!-- Substitua o CDN do Tailwind por uma versão compilada -->
     <link href="/css/tailwind.css" rel="stylesheet">
     
-    <!-- Carregamento otimizado do Google Maps -->
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initGoogleMaps">
+    <!-- Primeiro declare a função de inicialização -->
+    <script>
+        function initMap() {
+            // A função será chamada quando o Google Maps for carregado
+            const defaultLocation = { lat: -23.550520, lng: -46.633308 }; // São Paulo
+            
+            const map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLocation,
+                zoom: 12
+            });
+
+            // Autocomplete para origem e destino
+            const originInput = document.getElementById('origin');
+            const destinationInput = document.getElementById('destination');
+            
+            if (originInput && destinationInput) {
+                new google.maps.places.Autocomplete(originInput);
+                new google.maps.places.Autocomplete(destinationInput);
+            }
+        }
+    </script>
+
+    <!-- Depois carregue o Google Maps -->
+    <script async
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVe7W-B0zZa-6ePrcLfZkDzs1RGRSHSCc&libraries=places&callback=initMap">
     </script>
     
     <style>
@@ -94,6 +115,46 @@
             <h3 class="text-xl font-bold mb-4">Status da Corrida</h3>
             <div id="rideInfo" class="space-y-2">
                 <!-- Informações da corrida serão inseridas aqui -->
+            </div>
+        </div>
+
+        <!-- Adicione esta seção dentro da div mainScreen -->
+        <div id="passengerDashboard" class="container mx-auto mt-10 p-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Formulário de solicitação -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-6">Solicitar Corrida</h2>
+                    <form id="rideRequestForm" onsubmit="handleRideRequest(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-gray-700 mb-2">Origem</label>
+                            <input type="text" 
+                                   id="origin" 
+                                   class="w-full p-2 border rounded" 
+                                   placeholder="Digite o endereço de origem"
+                                   required>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Destino</label>
+                            <input type="text" 
+                                   id="destination" 
+                                   class="w-full p-2 border rounded" 
+                                   placeholder="Digite o endereço de destino"
+                                   required>
+                        </div>
+                        <button type="submit" 
+                                class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">
+                            Solicitar Corrida
+                        </button>
+                    </form>
+
+                    <!-- Status da corrida -->
+                    <div id="rideStatus" class="mt-6 hidden"></div>
+                </div>
+
+                <!-- Mapa -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <div id="map" class="h-96"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -2177,18 +2238,59 @@
 
         // Funções auxiliares para cálculos
         async function calculateDistance(origin, destination) {
-            // Implementar cálculo real de distância usando Google Distance Matrix API
-            return 5; // Valor exemplo em km
+            try {
+                const service = new google.maps.DistanceMatrixService();
+                const result = await new Promise((resolve, reject) => {
+                    service.getDistanceMatrix({
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.DRIVING,
+                    }, (response, status) => {
+                        if (status === 'OK') {
+                            resolve(response);
+                        } else {
+                            reject(new Error('Erro ao calcular distância'));
+                        }
+                    });
+                });
+
+                const distance = result.rows[0].elements[0].distance.value / 1000; // Converte para km
+                return distance;
+            } catch (error) {
+                console.error('Erro ao calcular distância:', error);
+                return 5; // Valor padrão em km
+            }
         }
 
-        async function calculatePrice(origin, destination) {
-            // Implementar cálculo real de preço baseado na distância
-            return 25; // Valor exemplo em reais
+        async function calculatePrice(distance) {
+            const BASE_PRICE = 5; // Taxa base
+            const PRICE_PER_KM = 2; // Preço por km
+            return BASE_PRICE + (distance * PRICE_PER_KM);
         }
 
         async function calculateTime(origin, destination) {
-            // Implementar cálculo real de tempo usando Google Distance Matrix API
-            return 15; // Valor exemplo em minutos
+            try {
+                const service = new google.maps.DistanceMatrixService();
+                const result = await new Promise((resolve, reject) => {
+                    service.getDistanceMatrix({
+                        origins: [origin],
+                        destinations: [destination],
+                        travelMode: google.maps.TravelMode.DRIVING,
+                    }, (response, status) => {
+                        if (status === 'OK') {
+                            resolve(response);
+                        } else {
+                            reject(new Error('Erro ao calcular tempo'));
+                        }
+                    });
+                });
+
+                const minutes = Math.ceil(result.rows[0].elements[0].duration.value / 60);
+                return minutes;
+            } catch (error) {
+                console.error('Erro ao calcular tempo:', error);
+                return 15; // Valor padrão em minutos
+            }
         }
     </script>
 </body>

@@ -59,9 +59,43 @@ function checkSpeedEvent(currentSpeed, location) {
   return null;
 }
 
+function checkCancellationStatus(ride) {
+  const now = new Date();
+  const status = {
+    canCancel: true,
+    penalty: 0,
+    reason: ''
+  };
+
+  // Verifica se a corrida já foi finalizada ou cancelada
+  if (['completed', 'cancelled'].includes(ride.status)) {
+    status.canCancel = false;
+    status.reason = 'Esta corrida não pode mais ser cancelada';
+    return status;
+  }
+
+  // Calcula penalidade baseada no estado atual
+  if (ride.status === 'in_progress') {
+    status.penalty = ride.estimatedPrice * (ride.cancellationRules.penaltyPercentages.duringRide / 100);
+    status.reason = 'Cancelamento durante a corrida terá uma penalidade';
+  } else if (ride.driverArrived) {
+    status.penalty = ride.estimatedPrice * (ride.cancellationRules.penaltyPercentages.afterArrival / 100);
+    status.reason = 'Cancelamento após chegada do motorista terá uma penalidade';
+  } else if (ride.status === 'accepted') {
+    const minutesSinceAcceptance = (now - new Date(ride.acceptedAt)) / 1000 / 60;
+    if (minutesSinceAcceptance > ride.cancellationRules.maxTimeWithoutPenalty) {
+      status.penalty = ride.estimatedPrice * (ride.cancellationRules.penaltyPercentages.afterAcceptance / 100);
+      status.reason = 'Tempo limite para cancelamento sem custo excedido';
+    }
+  }
+
+  return status;
+}
+
 module.exports = {
   calculateETA,
   calculateDynamicPrice,
   calculateRouteDeviation,
-  checkSpeedEvent
+  checkSpeedEvent,
+  checkCancellationStatus
 }; 

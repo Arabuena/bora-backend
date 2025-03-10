@@ -98,6 +98,31 @@ const rideSchema = new mongoose.Schema({
         longitude: Number
       }
     }]
+  },
+  acceptedAt: Date,
+  cancellationPenalty: {
+    type: Number,
+    default: 0
+  },
+  cancellationRules: {
+    maxTimeWithoutPenalty: {
+      type: Number,
+      default: 5 // minutos
+    },
+    penaltyPercentages: {
+      afterAcceptance: {
+        type: Number,
+        default: 10 // 10%
+      },
+      afterArrival: {
+        type: Number,
+        default: 20 // 20%
+      },
+      duringRide: {
+        type: Number,
+        default: 30 // 30%
+      }
+    }
   }
 });
 

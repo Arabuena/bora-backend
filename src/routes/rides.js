@@ -91,6 +91,7 @@ router.get('/:rideId/status', authenticateToken, async (req, res) => {
 // Cancelar corrida
 router.post('/:rideId/cancel', authenticateToken, async (req, res) => {
   try {
+    const { reason } = req.body;
     const ride = await Ride.findById(req.params.rideId);
     
     if (!ride) {
@@ -100,19 +101,45 @@ router.post('/:rideId/cancel', authenticateToken, async (req, res) => {
       });
     }
 
-    if (ride.passenger.id !== req.user.id) {
+    // Verifica se é o passageiro ou motorista
+    const isPassenger = ride.passenger.id === req.user.id;
+    const isDriver = ride.driver?.id === req.user.id;
+
+    if (!isPassenger && !isDriver) {
       return res.status(403).json({
         success: false,
         message: 'Não autorizado'
       });
     }
 
+    // Verifica se a corrida ainda pode ser cancelada
+    const uncancelableStatuses = ['completed', 'cancelled'];
+    if (uncancelableStatuses.includes(ride.status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Esta corrida não pode mais ser cancelada'
+      });
+    }
+
+    // Aplica penalidade se o cancelamento for após certo tempo
+    let penalty = 0;
+    if (ride.status === 'in_progress') {
+      penalty = calculateCancellationPenalty(ride);
+    }
+
+    // Atualiza o status da corrida
     ride.status = 'cancelled';
+    ride.cancelReason = reason || 'Cancelado pelo usuário';
+    ride.cancelledBy = isPassenger ? 'passenger' : 'driver';
+    ride.cancelledAt = new Date();
+    ride.cancellationPenalty = penalty;
+
     await ride.save();
 
     res.json({
       success: true,
-      ride
+      ride,
+      penalty
     });
   } catch (error) {
     console.error('Erro ao cancelar corrida:', error);
@@ -642,5 +669,28 @@ router.post('/:rideId/report', authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Adicione esta função de utilidade no arquivo
+function calculateCancellationPenalty(ride) {
+  // Se a corrida já começou, aplica penalidade maior
+  if (ride.status === 'in_progress') {
+    return ride.estimatedPrice * 0.3; // 30% do valor estimado
+  }
+
+  // Se o motorista já chegou ao local
+  if (ride.driverArrived) {
+    return ride.estimatedPrice * 0.2; // 20% do valor estimado
+  }
+
+  // Se apenas aceitou a corrida
+  if (ride.status === 'accepted') {
+    const minutesSinceAcceptance = (new Date() - new Date(ride.acceptedAt)) / 1000 / 60;
+    if (minutesSinceAcceptance > 5) {
+      return ride.estimatedPrice * 0.1; // 10% do valor estimado após 5 minutos
+    }
+  }
+
+  return 0; // Sem penalidade
+}
 
 module.exports = router; 

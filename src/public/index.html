@@ -8,6 +8,11 @@
     <!-- Substitua o CDN do Tailwind por uma versão compilada -->
     <link href="/css/tailwind.css" rel="stylesheet">
     
+    <!-- Carregamento otimizado do Google Maps -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places&callback=initGoogleMaps">
+    </script>
+    
     <style>
         #map, #driverMap {
             height: 400px;
@@ -2092,6 +2097,98 @@
                     </div>
                 </div>
             `;
+        }
+
+        // Inicialização do Google Maps
+        function initGoogleMaps() {
+            const defaultLocation = { lat: -23.550520, lng: -46.633308 }; // São Paulo
+            
+            const map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLocation,
+                zoom: 12
+            });
+
+            // Autocomplete para origem e destino
+            const originInput = document.getElementById('origin');
+            const destinationInput = document.getElementById('destination');
+            
+            new google.maps.places.Autocomplete(originInput);
+            new google.maps.places.Autocomplete(destinationInput);
+        }
+
+        // Função para lidar com a solicitação de corrida
+        async function handleRideRequest(event) {
+            event.preventDefault();
+            
+            try {
+                const origin = document.getElementById('origin').value;
+                const destination = document.getElementById('destination').value;
+                
+                if (!origin || !destination) {
+                    alert('Por favor, preencha origem e destino');
+                    return;
+                }
+
+                // Mostra o elemento de status antes de fazer a requisição
+                const rideStatusDiv = document.getElementById('rideStatus');
+                rideStatusDiv.classList.remove('hidden');
+                rideStatusDiv.innerHTML = `
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2">Status da Corrida</h3>
+                        <p class="mb-4">Processando sua solicitação...</p>
+                    </div>
+                `;
+
+                const response = await fetch('/rides/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        origin,
+                        destination,
+                        distance: await calculateDistance(origin, destination),
+                        estimatedPrice: await calculatePrice(origin, destination),
+                        estimatedTime: await calculateTime(origin, destination)
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('currentRideId', data.ride._id);
+                    startRideStatusMonitoring(data.ride._id);
+                    updateRideStatus(data.ride);
+                } else {
+                    throw new Error(data.message || 'Erro ao solicitar corrida');
+                }
+            } catch (error) {
+                console.error('Erro ao solicitar corrida:', error);
+                const rideStatusDiv = document.getElementById('rideStatus');
+                rideStatusDiv.innerHTML = `
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-2 text-red-600">Erro</h3>
+                        <p class="mb-4">Não foi possível solicitar a corrida. Tente novamente.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Funções auxiliares para cálculos
+        async function calculateDistance(origin, destination) {
+            // Implementar cálculo real de distância usando Google Distance Matrix API
+            return 5; // Valor exemplo em km
+        }
+
+        async function calculatePrice(origin, destination) {
+            // Implementar cálculo real de preço baseado na distância
+            return 25; // Valor exemplo em reais
+        }
+
+        async function calculateTime(origin, destination) {
+            // Implementar cálculo real de tempo usando Google Distance Matrix API
+            return 15; // Valor exemplo em minutos
         }
     </script>
 </body>

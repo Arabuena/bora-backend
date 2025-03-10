@@ -12,11 +12,21 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ success: false, message: 'Token não fornecido' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
       return res.status(403).json({ success: false, message: 'Token inválido' });
     }
-    req.user = user;
+    
+    // Adiciona todas as informações do usuário ao req
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      name: decoded.name,
+      role: decoded.role,
+      vehicle: decoded.vehicle,
+      rating: decoded.rating
+    };
+    
     next();
   });
 };
@@ -153,24 +163,29 @@ router.post('/:rideId/cancel', authenticateToken, async (req, res) => {
 // Listar corridas disponíveis para motoristas
 router.get('/available', authenticateToken, async (req, res) => {
   try {
-    // Busca todas as corridas com status 'searching'
-    const rides = await Ride.find({ 
-      status: 'searching',
-      // Não mostrar corridas antigas (mais de 30 minutos)
-      createdAt: { $gte: new Date(Date.now() - 30 * 60 * 1000) }
-    }).sort({ createdAt: -1 });
+    // Verifica se é um motorista
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({
+        success: false,
+        message: 'Apenas motoristas podem ver corridas disponíveis'
+      });
+    }
 
-    console.log('Corridas disponíveis:', rides.length);
+    // Busca corridas com status 'searching'
+    const availableRides = await Ride.find({
+      status: 'searching',
+      'driver.id': { $exists: false } // Ainda sem motorista atribuído
+    }).sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      rides
+      rides: availableRides
     });
   } catch (error) {
-    console.error('Erro ao buscar corridas disponíveis:', error);
+    console.error('Erro ao listar corridas disponíveis:', error);
     res.status(500).json({
       success: false,
-      message: 'Erro ao buscar corridas disponíveis'
+      message: 'Erro ao listar corridas disponíveis'
     });
   }
 });
@@ -178,8 +193,16 @@ router.get('/available', authenticateToken, async (req, res) => {
 // Aceitar uma corrida
 router.post('/:rideId/accept', authenticateToken, async (req, res) => {
   try {
+    // Verifica se é um motorista
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({
+        success: false,
+        message: 'Apenas motoristas podem aceitar corridas'
+      });
+    }
+
     const ride = await Ride.findById(req.params.rideId);
-    
+
     if (!ride) {
       return res.status(404).json({
         success: false,
@@ -187,6 +210,7 @@ router.post('/:rideId/accept', authenticateToken, async (req, res) => {
       });
     }
 
+    // Verifica se a corrida ainda está disponível
     if (ride.status !== 'searching') {
       return res.status(400).json({
         success: false,
@@ -194,14 +218,17 @@ router.post('/:rideId/accept', authenticateToken, async (req, res) => {
       });
     }
 
-    // Atualiza o status e adiciona informações do motorista
-    ride.status = 'accepted';
+    // Atualiza a corrida com as informações do motorista
     ride.driver = {
       id: req.user.id,
+      name: req.user.name,
       email: req.user.email,
-      name: req.user.name || 'Motorista',
-      car: req.user.car || 'Veículo não especificado'
+      car: req.user.vehicle?.model,
+      plate: req.user.vehicle?.plate,
+      rating: req.user.rating
     };
+    ride.status = 'accepted';
+    ride.acceptedAt = new Date();
 
     await ride.save();
 
@@ -692,5 +719,35 @@ function calculateCancellationPenalty(ride) {
 
   return 0; // Sem penalidade
 }
+
+// Listar corridas ativas do motorista
+router.get('/driver/active', authenticateToken, async (req, res) => {
+  try {
+    // Verifica se é um motorista
+    if (req.user.role !== 'driver') {
+      return res.status(403).json({
+        success: false,
+        message: 'Acesso não autorizado'
+      });
+    }
+
+    // Busca corridas ativas do motorista
+    const activeRides = await Ride.find({
+      'driver.id': req.user.id,
+      status: { $in: ['accepted', 'arrived', 'in_progress'] }
+    }).sort({ acceptedAt: -1 });
+
+    res.json({
+      success: true,
+      rides: activeRides
+    });
+  } catch (error) {
+    console.error('Erro ao listar corridas ativas:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao listar corridas ativas'
+    });
+  }
+});
 
 module.exports = router; 

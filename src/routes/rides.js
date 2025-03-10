@@ -323,4 +323,324 @@ router.get('/driver/stats', authenticateToken, async (req, res) => {
     }
 });
 
+// Atualizar localização do motorista
+router.post('/:rideId/location', authenticateToken, async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    ride.driverLocation = {
+      latitude,
+      longitude,
+      updatedAt: new Date()
+    };
+
+    await ride.save();
+
+    res.json({
+      success: true,
+      location: ride.driverLocation
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar localização:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar localização'
+    });
+  }
+});
+
+// Obter detalhes completos da corrida
+router.get('/:rideId/details', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    // Verifica permissão
+    if (ride.passenger.id !== req.user.id && ride.driver?.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    // Adiciona informações de tempo estimado se o motorista estiver a caminho
+    if (ride.status === 'accepted' && ride.driverLocation) {
+      ride.estimatedArrival = await calculateETA(ride.driverLocation, ride.origin);
+    }
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao buscar detalhes da corrida:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao buscar detalhes da corrida'
+    });
+  }
+});
+
+// Confirmar chegada do motorista
+router.post('/:rideId/arrived', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    ride.driverArrived = true;
+    ride.arrivedAt = new Date();
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao confirmar chegada:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao confirmar chegada'
+    });
+  }
+});
+
+// Confirmar embarque do passageiro
+router.post('/:rideId/pickup', authenticateToken, async (req, res) => {
+  try {
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    ride.status = 'in_progress';
+    ride.startTime = new Date();
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao confirmar embarque:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao confirmar embarque'
+    });
+  }
+});
+
+// Avaliar corrida (para passageiro e motorista)
+router.post('/:rideId/rate', authenticateToken, async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    // Verifica se é passageiro ou motorista
+    const isPassenger = ride.passenger.id === req.user.id;
+    const isDriver = ride.driver?.id === req.user.id;
+
+    if (!isPassenger && !isDriver) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    // Atualiza a avaliação correspondente
+    if (isPassenger) {
+      ride.rating.driver = rating;
+    } else {
+      ride.rating.passenger = rating;
+    }
+    
+    if (comment) {
+      ride.rating.comment = comment;
+    }
+
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao avaliar corrida:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao avaliar corrida'
+    });
+  }
+});
+
+// Confirmar código da corrida (segurança adicional)
+router.post('/:rideId/verify-code', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    if (ride.verificationCode !== code) {
+      return res.status(400).json({
+        success: false,
+        message: 'Código inválido'
+      });
+    }
+
+    ride.codeVerified = true;
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao verificar código:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao verificar código'
+    });
+  }
+});
+
+// Atualizar status da corrida em tempo real
+router.post('/:rideId/status-update', authenticateToken, async (req, res) => {
+  try {
+    const { status, currentLocation } = req.body;
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride || ride.driver.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    // Atualiza status e localização
+    ride.status = status;
+    if (currentLocation) {
+      ride.driverLocation = {
+        ...currentLocation,
+        updatedAt: new Date()
+      };
+    }
+
+    // Adiciona timestamps específicos baseados no status
+    switch (status) {
+      case 'arrived':
+        ride.arrivedAt = new Date();
+        break;
+      case 'in_progress':
+        ride.startTime = new Date();
+        break;
+      case 'completed':
+        ride.endTime = new Date();
+        ride.duration = (ride.endTime - ride.startTime) / 1000; // duração em segundos
+        break;
+    }
+
+    await ride.save();
+
+    // Calcula ETA se necessário
+    if (status === 'accepted' || status === 'in_progress') {
+      const destination = status === 'accepted' ? ride.origin : ride.destination;
+      const eta = await calculateETA(ride.driverLocation, destination);
+      ride.estimatedArrival = eta;
+    }
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar status'
+    });
+  }
+});
+
+// Reportar problema durante a corrida
+router.post('/:rideId/report', authenticateToken, async (req, res) => {
+  try {
+    const { type, description } = req.body;
+    const ride = await Ride.findById(req.params.rideId);
+
+    if (!ride) {
+      return res.status(404).json({
+        success: false,
+        message: 'Corrida não encontrada'
+      });
+    }
+
+    // Verifica se é participante da corrida
+    if (ride.passenger.id !== req.user.id && ride.driver?.id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Não autorizado'
+      });
+    }
+
+    // Adiciona o reporte ao histórico da corrida
+    const report = {
+      type,
+      description,
+      reportedBy: req.user.id,
+      reportedAt: new Date()
+    };
+
+    ride.reports = ride.reports || [];
+    ride.reports.push(report);
+    await ride.save();
+
+    res.json({
+      success: true,
+      ride
+    });
+  } catch (error) {
+    console.error('Erro ao reportar problema:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao reportar problema'
+    });
+  }
+});
+
 module.exports = router; 
